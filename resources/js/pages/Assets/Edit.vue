@@ -53,14 +53,11 @@ const submit = () => {
     <Head :title="`Edit Asset - ${form.name}`" />
     <AppLayout :breadcrumbs="breadcrumbs">
         <template #header>
-            <div class="mt-6">
-                <div class="flex h-16 items-center justify-between border-b bg-white px-4 sm:px-6 lg:px-8">
-                    <h2 class="text-xl font-semibold tracking-tight">
-                        Edit Asset
-                    </h2>
-                </div>
+            <div class="flex h-16 items-center justify-between border-b px-4 sm:px-6 lg:px-8 m-2">
+                <h2 class="text-xl font-semibold tracking-tight">
+                    Edit Asset
+                </h2>
             </div>
-
         </template>
 
         <form @submit.prevent="submit" class="mt-2">

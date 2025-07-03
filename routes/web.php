@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LocationController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
@@ -22,6 +23,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/assets/{asset}', [AssetController::class, 'destroy'])->name('assets.delete');
     Route::post('/assets/bulk-delete', [AssetController::class, 'bulkDestroy'])->name('assets.bulkDelete');
     Route::get('/assets/export', [AssetController::class, 'export'])->name('assets.export');
+    Route::post('/assets/{asset}/assign', [AssetController::class, 'assign'])->name('assets.assign');
+
+    Route::resource('settings/locations', LocationController::class);
 });
 
 

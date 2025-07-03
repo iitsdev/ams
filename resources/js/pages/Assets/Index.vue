@@ -2,7 +2,7 @@
 import { ref, watch, computed } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -30,6 +30,26 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+
+} from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command'
+
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
@@ -39,9 +59,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { MoreHorizontal, Plus, Search, Upload, Download, Filter, ArrowUpDown, ArrowUp, ArrowDown, Laptop } from 'lucide-vue-next';
+import { MoreHorizontal, Plus, Search, Upload, Download, Filter, ArrowUpDown, ArrowUp, ArrowDown, Laptop, ChevronsUpDown, Check, Cpu } from 'lucide-vue-next';
 import { debounce } from 'lodash';
 import { type BreadcrumbItem } from '@/types';
+import { cn } from '@/lib/utils';
 
 const props = defineProps({
     assets: Object,
@@ -121,6 +142,38 @@ const processDeletion = () => {
         router.delete(route('assets.delete', assetToDelete.value.id), { preserveScroll: true, onSuccess })
     }
 }
+
+// --- ASSIGN LOGIC ---
+const isAssignDialogOpen = ref(false);
+const assetToAssign = ref<any>(null);
+const comboboxOpen = ref(false);
+const assignForm = useForm({
+    user_id: '',
+});
+
+
+
+const filteredUsers = computed(() =>
+    props.dropdowns?.users.filter(user => form.user_id ? user.id !== form.user_id : true)
+)
+
+const openAssignDialog = (asset: any) => {
+    assetToAssign.value = asset
+    isAssignDialogOpen.value = true
+}
+
+const assignAsset = () => {
+    if (!assetToAssign.value) return;
+
+    assignForm.post(route('assets.assign', assetToAssign.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            isAssignDialogOpen.value = false
+            assignForm.reset()
+        }
+    })
+}
+
 
 // --- HELPER FUNCTIONS ---
 const getStatusVariant = (statusName: string) => { return 'default' }
@@ -273,7 +326,11 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem as-child>
-                                                <Link :href="route('assets.edit', asset.id)">Edit</Link>
+                                                <Link :href="route('assets.edit', asset.id)">View/Edit</Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem v-if="!asset.assigned_to_user"
+                                                @click="openAssignDialog(asset)">
+                                                Assign
                                             </DropdownMenuItem>
                                             <DropdownMenuItem @click="confirmSingleDeletion(asset)"
                                                 class="text-red-600">Delete
@@ -290,6 +347,60 @@ const breadcrumbs: BreadcrumbItem[] = [
             </div>
         </div>
     </AppLayout>
+
+    <Dialog :open="isAssignDialogOpen" @update:open="isAssignDialogOpen = $event">
+        <DialogContent class="sm:max-w-[425px]">
+            <DialogHeader>
+                <DialogTitle>Assign Asset</DialogTitle>
+                <DialogDescription>
+                    Assign "{{ assetToAssign?.name }}" to a user.
+                </DialogDescription>
+                <form @submit.prevent="assignAsset" class="space-y-4 py-4">
+                    <div>
+                        <Label for="user" class="mb-2 block">User</Label>
+
+                        <Popover v-model:open="comboboxOpen">
+                            <PopoverTrigger as-child>
+                                <Button variant="outline" role="combobox" :aria-expanded="comboboxOpen"
+                                    class="w-full justify-between">
+                                    {{assignForm.user_id ? dropdowns?.users.find((user) => user.id ===
+                                        assignForm.user_id)?.name : "Select user..."}}
+                                    <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent class="w-[375px] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search user..." />
+                                    <CommandEmpty>No user found.</CommandEmpty>
+                                    <CommandList>
+                                        <CommandGroup>
+                                            <CommandItem v-for="user in dropdowns?.users" :key="user.id"
+                                                :value="user.id" @select="(ev) => {
+                                                    assignForm.user_id = ev.detail.value
+                                                    comboboxOpen = false
+                                                }">
+                                                <Check
+                                                    :class="cn('mr-2 h-4 w-4', assignForm.user_id === user.id ? 'opacity-100' : 'opacity-0')" />
+                                                {{ user.name }}
+                                            </CommandItem>
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <div v-if="assignForm.errors.user_id" class="text-sm text-red-600 mt-1">
+                            {{ assignForm.errors.user_id }}
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-2">
+                        <Button type="button" variant="outline" @click="isAssignDialogOpen = false">Cancel</Button>
+                        <Button type="submit" :disabled="assignForm.processing">Assign Asset</Button>
+                    </div>
+                </form>
+            </DialogHeader>
+        </DialogContent>
+    </Dialog>
 
     <AlertDialog :open="isDialogOpen" @update:open="(value) => isDialogOpen = value">
         <AlertDialogContent>

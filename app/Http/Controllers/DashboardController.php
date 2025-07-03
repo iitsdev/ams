@@ -17,13 +17,20 @@ class DashboardController extends Controller
 
         $assetsByStatus = AssetStatus::query()->withCount('assets')->get();
 
+        $labels = [];
+        $data = [];
+
+        foreach ($assetsByStatus as $status) {
+            $labels[] = $status->name;
+            $data[] = $status->assets_count;
+        }
 
         $chartData = [
-            'labels' => $assetsByStatus->pluck('name'),
+            'labels' => $labels,
             'datasets' => [
                 [
-                    'data' => $assetsByStatus->pluck('asset_count'),
-                    'backgourndColor' => ['#4ade80', '#facc15', '#f87171', '#60a5fa', '#a78bfa'],
+                    'data' => $data,
+                    'backgroundColor' => ['#4ADE80', '#FACC15', '#F87171', '#60A5FA', '#A78BFA', '#F472B6'],
                 ],
             ],
         ];

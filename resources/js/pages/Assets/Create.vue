@@ -56,7 +56,7 @@ const submit = () => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <template #header>
-            <div class="flex h-16 items-center justify-between border-b bg-white px-4 sm:px-6 lg:px-8 m-2">
+            <div class="flex h-16 items-center justify-between border-b px-4 sm:px-6 lg:px-8 m-2">
                 <h2 class="text-xl font-semibold tracking-tight">
                     Create a New Asset
                 </h2>
@@ -190,7 +190,7 @@ const submit = () => {
                             </CardContent>
                         </CardHeader>
                     </Card>
-                    <div clas="flex items-center justify-end gap-4">
+                    <div class="flex items-center justify-end gap-2">
                         <Link :href="route('assets.index')">
                         <Button variant="outline">Cancel</Button>
                         </Link>

@@ -29,7 +29,7 @@ const chartData = computed(() => props.assetsByStatusChart);
 
 const chartOptions = {
     responsive: true,
-    maintainAspectRation: false,
+    maintainAspectRatio: false,
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -77,8 +77,9 @@ const breadcrumbs: BreadcrumbItem[] = [
                         <CardTitle>Assets by Status</CardTitle>
                     </CardHeader>
                     <CardContent>
+                        <!-- <pre class="text-xs bg-gray-100 p-2 rounded mb-4">{{ assetsByStatusChart }}</pre> -->
                         <div class="h-[350px]">
-                            <Pie :data="assetsByStatusChart" :options="chartOptions" />
+                            <Pie :data="chartData" :options="chartOptions" />
                         </div>
                     </CardContent>
                 </Card>

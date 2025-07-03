@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Asset;
+use App\Models\User;
 use App\Models\AssetStatus;
 use App\Models\Category;
 use App\Models\Location;
+use App\Models\CheckinCheckoutLog;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Database\Eloquent\Builder;
@@ -55,7 +57,7 @@ class AssetController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return Inertia::render('Assets/Index', [
+        return Inertia::render('assets/Index', [
             'assets' => $assets,
             'filters' => array_merge($filters, [
                 'sort_by' => $sortBy,
@@ -65,6 +67,7 @@ class AssetController extends Controller
                 'statuses' => AssetStatus::all(['id', 'name']),
                 'categories' => Category::all(['id', 'name']),
                 'locations' => Location::all(['id', 'name']),
+                'users' => User::all(['id', 'name']),
             ],
             'can' => [
                 'create_asset' => auth()->user()->can('create assets'),
@@ -75,7 +78,7 @@ class AssetController extends Controller
     public function create()
     {
 
-        return Inertia::render('Assets/Create', [
+        return Inertia::render('assets/Create', [
             'dropdowns' => [
                 'statuses' => AssetStatus::all('id', 'name'),
                 'categories' => Category::all('id', 'name'),
@@ -111,7 +114,7 @@ class AssetController extends Controller
 
     public function edit(Asset $asset)
     {
-        return Inertia::render('Assets/Edit', [
+        return Inertia::render('assets/Edit', [
             'asset' => $asset,
             'dropdowns' => [
                 'statuses' => AssetStatus::all(['id', 'name']),
@@ -211,9 +214,32 @@ class AssetController extends Controller
                     }
                 });
 
-            // Close the output stream
             fclose($handle);
         }, 200, $headers); // Pass the status code and headers to the response
 
+    }
+
+    public function assign(Request $request, Asset $asset)
+    {
+
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        $deployedStatus = AssetStatus::where('name', 'Deployed')->firstOrFail();
+
+        $asset->update([
+            'assigned_to' => $validated['user_id'],
+            'status_id' => $deployedStatus->id,
+        ]);
+
+        CheckinCheckoutLog::create([
+            'asset_id' => $asset->id,
+            'user_id' => $validated['user_id'],
+            'action' => 'checkout',
+            'timestamp' => now(),
+        ]);
+
+        return back()->with('success', 'Asset assigned successfully!');
     }
 }

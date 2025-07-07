@@ -3,8 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\UserController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
@@ -15,6 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    //Assets Routes
     Route::get('/assets', [AssetController::class, 'index'])->name('assets.index');
     Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
     Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
@@ -25,7 +28,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/assets/export', [AssetController::class, 'export'])->name('assets.export');
     Route::post('/assets/{asset}/assign', [AssetController::class, 'assign'])->name('assets.assign');
 
-    Route::resource('settings/locations', LocationController::class);
+    //Locations Routes
+    Route::resource('settings/locations', LocationController::class)->except(['show']);
+    //Categories Routes
+    Route::resource('settings/categories', CategoryController::class)->except(['show']);
+    //User Management Routes
+    Route::resource('settings/users', UserController::class)->except(['show']);
 });
 
 

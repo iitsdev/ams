@@ -19,9 +19,9 @@ return new class extends Migration
             $table->string('serial_number')->nullable();
             $table->text('description')->nullable();
 
-            $table->foreignId('category_id')->constrained('categories')->onDelete('cascade');
-            $table->foreignId('location_id')->constrained('locations')->onDelete('cascade');
-            $table->foreignId('status_id')->constrained('asset_statuses')->onDelete('cascade');
+            $table->foreignId('category_id')->nullable()->constrained('categories')->onDelete('set null');
+            $table->foreignId('location_id')->nullable()->constrained('locations')->onDelete('set null');
+            $table->foreignId('status_id')->nullable()->constrained('asset_statuses')->onDelete('set null');
 
             $table->date('purchase_date')->nullable();
             $table->decimal('purchase_cost', 10, 2)->nullable();

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Trash2, Edit, Save, XCircle } from 'lucide-vue-next';
 import { BreadcrumbItem } from '@/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -136,48 +137,51 @@ const breadcrumbs: BreadcrumbItem[] = [
                             <CardTitle>Existing Locations</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <ul class="space-y-2">
-                                <li v-for="location in props.locations?.data" :key="location.id"
-                                    class="flex items-center justify-between border-b pb-2">
-                                    <div v-if="editingLocationId === location.id" class="flex-1 mr-2">
-                                        <Input v-model="editForm.name" type="text"
-                                            @keyup.enter="updateLocation(location.id)" @keyup.esc="cancelEdit" />
-                                        <div v-if="editForm.errors.name" class="text-sm text-red-600 mt-1">
-                                            {{ editForm.errors.name }}
+                            <ScrollArea class="h-72" type="auto">
+                                <ul class="space-y-2 pr-4">
+                                    <li v-for="location in props.locations?.data" :key="location.id"
+                                        class="flex items-center justify-between border-b pb-2">
+                                        <div v-if="editingLocationId === location.id" class="flex-1 mr-2">
+                                            <Input v-model="editForm.name" type="text"
+                                                @keyup.enter="updateLocation(location.id)" @keyup.esc="cancelEdit" />
+                                            <div v-if="editForm.errors.name" class="text-sm text-red-600 mt-1">
+                                                {{ editForm.errors.name }}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <span v-else>{{ location.name }}</span>
+                                        <span v-else>{{ location.name }}</span>
 
-                                    <div class="flex items-center">
-                                        <template v-if="editingLocationId === location.id">
-                                            <Button variant="ghost" size="icon" @click="updateLocation(location.id)">
-                                                <Save class="h-4 w-4 text-dark-600" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" @click="cancelEdit">
-                                                <XCircle class="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        </template>
-                                        <template v-else>
-                                            <Button variant="ghost" size="icon" @click="editLocation(location)">
-                                                <Edit class="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" @click="confirmDeletion(location)">
-                                                <Trash2 class="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        </template>
-                                    </div>
-                                </li>
-                                <li v-if="locations?.data.length === 0" class="text-muted-foreground">
-                                    No locations found.
-                                    _</li>
-                            </ul>
+                                        <div class="flex items-center">
+                                            <template v-if="editingLocationId === location.id">
+                                                <Button variant="ghost" size="icon"
+                                                    @click="updateLocation(location.id)">
+                                                    <Save class="h-4 w-4 text-dark-600" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" @click="cancelEdit">
+                                                    <XCircle class="h-4 w-4 text-muted-foreground" />
+                                                </Button>
+                                            </template>
+                                            <template v-else>
+                                                <Button variant="ghost" size="icon" @click="editLocation(location)">
+                                                    <Edit class="h-4 w-4 text-muted-foreground" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" @click="confirmDeletion(location)">
+                                                    <Trash2 class="h-4 w-4 text-muted-foreground" />
+                                                </Button>
+                                            </template>
+                                        </div>
+                                    </li>
+                                    <li v-if="locations?.data.length === 0" class="text-muted-foreground">
+                                        No locations found.
+                                    </li>
+                                </ul>
+                            </ScrollArea>
                         </CardContent>
                     </Card>
                 </div>
             </div>
         </div>
     </AppLayout>
-    <AlertDialog :open="isDialogOpen" @update:open="(value) => isDialogOpen = value">
+    <AlertDialog :open="isDialogOpen">
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>

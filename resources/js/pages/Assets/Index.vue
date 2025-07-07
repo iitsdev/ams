@@ -125,7 +125,7 @@ const isDialogOpen = ref(false)
 const assetToDelete = ref(null)
 const isBulkDelete = ref(false)
 
-const confirmSingleDeletion = (asset) => {
+const confirmSingleDeletion = (asset: any) => {
     isBulkDelete.value = false
     assetToDelete.value = asset
     isDialogOpen.value = true
@@ -300,7 +300,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         </div>
                                     </div>
                                 </TableCell>
-                                <TableCell>{{ asset.category.name }}</TableCell>
+                                <TableCell>{{ asset.category?.name }}</TableCell>
                                 <TableCell>
                                     <Badge :variant="getStatusVariant(asset.status.name)">{{ asset.status.name }}
                                     </Badge>

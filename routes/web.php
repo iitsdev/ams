@@ -7,6 +7,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\MaintenanceLogController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
@@ -27,6 +28,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/assets/bulk-delete', [AssetController::class, 'bulkDestroy'])->name('assets.bulkDelete');
     Route::get('/assets/export', [AssetController::class, 'export'])->name('assets.export');
     Route::post('/assets/{asset}/assign', [AssetController::class, 'assign'])->name('assets.assign');
+    Route::get('/assets/{asset}/show', [AssetController::class, 'show'])->name('assets.show');
 
     //Locations Routes
     Route::resource('settings/locations', LocationController::class)->except(['show']);
@@ -34,6 +36,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/categories', CategoryController::class)->except(['show']);
     //User Management Routes
     Route::resource('settings/users', UserController::class)->except(['show']);
+
+    //Maintenance Route
+    Route::post('/assets/{asset}/maintenance-logs', [MaintenanceLogController::class, 'store'])->name('assets.maintenance_logs.store');
 });
 
 

@@ -22,12 +22,14 @@ class MaintenanceLog extends Model
 
 
 
-    public function asset(): BelongsTo {
-        
+    public function asset(): BelongsTo
+    {
+
         return $this->belongsTo(Asset::class);
     }
 
-    public function peroformedByUser(): BelongsTo {
+    public function performedByUser(): BelongsTo
+    {
 
         return $this->belongsTo(User::class, 'performed_by');
     }

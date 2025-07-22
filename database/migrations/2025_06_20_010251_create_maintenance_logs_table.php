@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('maintenance_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('asset_id')->constrained('assets')->onDelete('cascade');
-            $table->string('maintenace_type'); // e.g., "Routine Check", "Repair", "Upgrade"
+            $table->string('maintenance_type'); // e.g., "Routine Check", "Repair", "Upgrade"
             $table->text('description');
             $table->decimal('cost', 10, 2)->nullable(); // Cost of the maintenance
             $table->foreignId('performed_by')->constrained('users')->onDelete('set null'); // User who performed the maintenance

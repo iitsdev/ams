@@ -59,7 +59,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { MoreHorizontal, Plus, Search, Upload, Download, Filter, ArrowUpDown, ArrowUp, ArrowDown, Laptop, ChevronsUpDown, Check, Cpu } from 'lucide-vue-next';
+import { MoreHorizontal, Plus, Search, Upload, Download, ArrowUpDown, ArrowUp, ArrowDown, Laptop, ChevronsUpDown, Check } from 'lucide-vue-next';
 import { debounce } from 'lodash';
 import { type BreadcrumbItem } from '@/types';
 import { cn } from '@/lib/utils';
@@ -153,9 +153,9 @@ const assignForm = useForm({
 
 
 
-const filteredUsers = computed(() =>
-    props.dropdowns?.users.filter(user => form.user_id ? user.id !== form.user_id : true)
-)
+// const filteredUsers = computed(() =>
+//     props.dropdowns?.users.filter(user => form.user_id ? user.id !== form.user_id : true)
+// )
 
 const openAssignDialog = (asset: any) => {
     assetToAssign.value = asset
@@ -326,7 +326,10 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem as-child>
-                                                <Link :href="route('assets.edit', asset.id)">View/Edit</Link>
+                                                <Link :href="route('assets.show', asset.id)">View</Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem as-child>
+                                                <Link :href="route('assets.edit', asset.id)">Edit</Link>
                                             </DropdownMenuItem>
                                             <DropdownMenuItem v-if="!asset.assigned_to_user"
                                                 @click="openAssignDialog(asset)">

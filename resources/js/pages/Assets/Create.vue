@@ -15,7 +15,6 @@ import {
 
 import { Textarea } from '@/components/ui/textarea'
 import { type BreadcrumbItem } from '@/types'
-import { fromPairs } from 'lodash'
 
 const props = defineProps({
     dropdowns: Object,
@@ -143,7 +142,7 @@ const submit = () => {
                                             <SelectValue placeholder="Select a category" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem v-for="item in dropdowns?.categories" :key="item.id"
+                                            <SelectItem v-for="item in props.dropdowns?.categories" :key="item.id"
                                                 :value="item.id">
                                                 {{ item.name }}
                                             </SelectItem>
@@ -160,7 +159,7 @@ const submit = () => {
                                             <SelectValue placeholder="Select a status" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem v-for="item in dropdowns?.statuses" :key="item.id"
+                                            <SelectItem v-for="item in props.dropdowns?.statuses" :key="item.id"
                                                 :value="item.id">
                                                 {{ item.name }}
                                             </SelectItem>
@@ -177,7 +176,7 @@ const submit = () => {
                                             <SelectValue placeholder="Select a location" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem v-for="item in dropdowns?.locations" :key="item.id"
+                                            <SelectItem v-for="item in props.dropdowns?.locations" :key="item.id"
                                                 :value="item.id">
                                                 {{ item.name }}
                                             </SelectItem>

@@ -7,20 +7,20 @@ import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
 import type { BreadcrumbItemType } from '@/types';
-import { fromPairs } from 'lodash';
+
 
 
 const page = usePage()
 
 
-watch(() => page.props.flash, (flash) => {
+watch(() => page.props.flash, (flash: any) => {
 
     // console.log('Flash message received from Laravel:', flash);
 
     if (flash.success) {
         toast.success(flash.success)
     }
-    
+
     if (flash.error) {
         toast.error(flash.error)
     }

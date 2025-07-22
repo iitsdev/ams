@@ -87,6 +87,15 @@ class AssetController extends Controller
         ]);
     }
 
+    public function show(Asset $asset)
+    {
+        $asset->load(['category', 'status', 'location', 'assignedToUser', 'maintenanceLogs.performedByUser']);
+
+        return Inertia::render('assets/Show', [
+
+            'asset' => $asset, 
+        ]);
+    }
 
     public function store(Request $request)
     {

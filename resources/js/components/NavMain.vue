@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDownIcon } from 'lucide-vue-next';
-import { cn } from '@/lib/utils';
 
 defineProps<{
     items: NavItem[];
@@ -22,7 +21,7 @@ function isCurrent(item: NavItem): boolean {
     return false;
 }
 
-const page = usePage();
+// const page = usePage();
 </script>
 
 <template>

@@ -59,9 +59,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { MoreHorizontal, Plus, Search, Upload, Download, ArrowUpDown, ArrowUp, ArrowDown, Laptop, ChevronsUpDown, Check } from 'lucide-vue-next';
+import { MoreHorizontal, Plus, UserPlus, Search, Upload, Download, ArrowUpDown, ArrowUp, ArrowDown, Laptop, ChevronsUpDown, Check } from 'lucide-vue-next';
 import { debounce } from 'lodash';
 import { type BreadcrumbItem } from '@/types';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const props = defineProps({
@@ -317,7 +323,25 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         </Avatar>
                                         <span>{{ asset.assigned_to_user.name }}</span>
                                     </div>
-                                    <div v-else class="text-muted-foreground">N/A</div>
+                                    <div v-else>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <Button 
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    class="rounded-full"
+                                                    @click="openAssignDialog(asset)"
+                                                    >
+                                                    <UserPlus clas="h-4 w-4"/>
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Assign to User</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
                                 </TableCell>
                                 <TableCell>{{ asset.depreciation ? `${asset.depreciation.current_value}` : 'N/A' }}
                                 </TableCell>
@@ -334,10 +358,6 @@ const breadcrumbs: BreadcrumbItem[] = [
                                             </DropdownMenuItem>
                                             <DropdownMenuItem as-child>
                                                 <Link :href="route('assets.edit', asset.id)">Edit</Link>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem v-if="!asset.assigned_to_user"
-                                                @click="openAssignDialog(asset)">
-                                                Assign
                                             </DropdownMenuItem>
                                             <DropdownMenuItem @click="confirmSingleDeletion(asset)"
                                                 class="text-red-600">Delete

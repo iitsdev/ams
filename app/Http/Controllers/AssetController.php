@@ -13,7 +13,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Database\Eloquent\Builder;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-
+use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class AssetController extends Controller
 {
@@ -57,6 +57,13 @@ class AssetController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+
+        $assets->getCollection()->transform(function ($asset) {
+            $asset->depreciation = $this->calculateDepreciation($asset);
+
+            return $asset;
+        });
+
         return Inertia::render('assets/Index', [
             'assets' => $assets,
             'filters' => array_merge($filters, [
@@ -74,6 +81,55 @@ class AssetController extends Controller
             ]
         ]);
     }
+    public function show(Asset $asset)
+    {
+        $asset->load(['category', 'status', 'location', 'assignedToUser', 'maintenanceLogs.performedByUser']);
+
+        $asset->depreciation = $this->calculateDepreciation($asset);
+
+        return Inertia::render('assets/Show', [
+
+            'asset' => $asset,
+        ]);
+    }
+
+    private function calculateDepreciation(Asset $asset): ?array
+    {
+
+        // Ensure we have all the required data
+        if (!$asset->purchase_cost || !$asset->purchase_date || !$asset->category?->lifespan_months) {
+            return null;
+        }
+
+        // Use startOfDay() to ignore time and prevent small calculation errors
+        $purchaseDate = $asset->purchase_date->startOfDay();
+        $now = now()->startOfDay();
+
+        // If the asset is new, it has not depreciated
+        if ($purchaseDate->isAfter($now) || $purchaseDate->isSameDay($now)) {
+            return [
+                'current_value' => round($asset->purchase_cost, 2),
+                'monthly_depreciation' => round($asset->purchase_cost / $asset->category->lifespan_months, 2),
+            ];
+        }
+
+        $ageInMonths = $purchaseDate->diffInMonths($now);
+        $lifespanMonths = (int) $asset->category->lifespan_months;
+
+        // Cap the age at the asset's total lifespan
+        if ($ageInMonths > $lifespanMonths) {
+            $ageInMonths = $lifespanMonths;
+        }
+
+        $monthlyDepreciation = (float) $asset->purchase_cost / $lifespanMonths;
+        $totalDepreciation = $monthlyDepreciation * $ageInMonths;
+        $currentValue = (float) $asset->purchase_cost - $totalDepreciation;
+
+        return [
+            'current_value' => round($currentValue, 2),
+            'monthly_depreciation' => round($monthlyDepreciation, 2),
+        ];
+    }
 
     public function create()
     {
@@ -87,15 +143,7 @@ class AssetController extends Controller
         ]);
     }
 
-    public function show(Asset $asset)
-    {
-        $asset->load(['category', 'status', 'location', 'assignedToUser', 'maintenanceLogs.performedByUser']);
 
-        return Inertia::render('assets/Show', [
-
-            'asset' => $asset, 
-        ]);
-    }
 
     public function store(Request $request)
     {
@@ -250,5 +298,50 @@ class AssetController extends Controller
         ]);
 
         return back()->with('success', 'Asset assigned successfully!');
+    }
+
+    public function barcode(Asset $asset)
+    {
+
+        $generator = new BarcodeGeneratorPNG();
+        $barcodeImage = $generator->getBarcode(
+            $asset->asset_tag,
+            $generator::TYPE_CODE_128,
+            2,
+            50
+        );
+
+        $barcodeWidth = imagesx(imagecreatefromstring($barcodeImage));
+        $textHeight = 20; // Height for the text area
+        $totalHeight = 50 + $textHeight;
+
+        $finalImage = imagecreatetruecolor($barcodeWidth, $totalHeight);
+
+        $backgroundColor = imagecolorallocate($finalImage, 255, 255, 255);
+        $textColor = imagecolorallocate($finalImage, 0, 0, 0);
+        imagefill($finalImage, 0, 0, $backgroundColor);
+
+        $barcodeSource = imagecreatefromstring($barcodeImage);
+        imagecopy($finalImage, $barcodeSource, 0, 0, 0, 0, $barcodeWidth, 50);
+
+        $font = 4;
+        $textWidth = imagefontwidth($font) * strlen($asset->asset_tag);
+        $textX = ($barcodeWidth - $textWidth) / 2;
+        imagestring($finalImage, $font, $textX, 55, $asset->asset_tag, $textColor);
+
+        ob_start();
+        imagepng($finalImage);
+        $finalImageData = ob_get_clean();
+        imagedestroy($finalImage);
+
+
+        return response($finalImageData)->header('Content-Type', 'image/png');
+    }
+
+    public function printLabel(Asset $asset)
+    {
+        return Inertia::render('assets/PrintLabel', [
+            'asset' => $asset,
+        ]);
     }
 }

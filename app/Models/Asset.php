@@ -29,6 +29,29 @@ class Asset extends Model
         'created_by',
     ];
 
+
+    /**
+     * The relationships that should always be loaded.
+     *
+     * @var array
+     */
+    protected $with = ['category'];
+
+
+    /**
+     * The attributes that should be cast to native types.
+     *
+     * @var array
+     */
+
+    protected $casts = [
+        'purchase_date' => 'date',
+        'warranty_expiry' => 'date',
+        'purchase_cost' => 'float',
+    ];
+
+
+
     /**
      * Get the category that owns the asset.
      */
@@ -99,11 +122,5 @@ class Asset extends Model
         return $this->hasMany(CheckinCheckoutLog::class);
     }
 
-    protected function depreciation(): Attribute
-    {
-        $purchaseCost = $this->purchase_cost;
-        $purchaseDate = Carbon::parse($this->purchase_date);
 
-        return Attribute::make();
-    }
 }

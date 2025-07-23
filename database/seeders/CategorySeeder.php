@@ -15,15 +15,16 @@ class CategorySeeder extends Seeder
      */
     public function run(): void
     {
-       Category::create(['name' => 'Desktop']);
-       Category::create(['name' => 'Laptop']);
-       Category::create(['name' => 'Tablet']);
-       Category::create(['name' => 'Printer']);
-       Category::create(['name' => 'Scanner']);
-       Category::create(['name' => 'Projector']);
-       Category::create(['name' => 'Monitor']);
-       Category::create(['name' => 'Keyboard']);
-       Category::create(['name' => 'Mouse']);
-       Category::create(['name' => 'Other']);
+
+        Category::updateOrcreate(['name' => 'Desktop'], ['lifespan_months' => 60]);
+        Category::updateOrCreate(['name' => 'Laptop'], ['lifespan_months' => 36]);
+        Category::updateOrCreate(['name' => 'Tablet'], ['lifespan_months' => 36]);
+        Category::updateOrCreate(['name' => 'Printer'], ['lifespan_months' => 60]);
+        Category::updateOrCreate(['name' => 'Scanner'], ['lifespan_months' => 36]);
+        Category::updateOrCreate(['name' => 'Projector'], ['lifespan_months' => 36]);
+        Category::updateOrCreate(['name' => 'Monitor'], ['lifespan_months' => 60]);
+        Category::updateOrCreate(['name' => 'Keyboard'], ['lifespan_months' => 24]);
+        Category::updateOrCreate(['name' => 'Mouse'], ['lifespan_months' => 24]);
+        Category::updateOrCreate(['name' => 'Other'], ['lifespan_months' => 60]);
     }
 }

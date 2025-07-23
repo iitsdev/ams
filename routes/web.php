@@ -29,6 +29,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/assets/export', [AssetController::class, 'export'])->name('assets.export');
     Route::post('/assets/{asset}/assign', [AssetController::class, 'assign'])->name('assets.assign');
     Route::get('/assets/{asset}/show', [AssetController::class, 'show'])->name('assets.show');
+    Route::get('/assets/{asset}/barcode', [AssetController::class, 'barcode'])->name('assets.barcode');
+    Route::get('/assets/{asset}/print', [AssetController::class, 'printLabel'])->name('assets.print');
 
     //Locations Routes
     Route::resource('settings/locations', LocationController::class)->except(['show']);

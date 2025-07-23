@@ -9,9 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Category extends Model
 {
     use HasFactory;
-    
-    protected $fillable =[
-        'name',    
+
+    protected $fillable = [
+        'name',
+        'lifespan_months',
     ];
 
 
@@ -19,10 +20,8 @@ class Category extends Model
      * Get the assets that belong to this category.
      */
 
-     public function assets(): HasMany 
-     {
+    public function assets(): HasMany
+    {
         return $this->hasMany(Asset::class);
-     }
-
-    
+    }
 }

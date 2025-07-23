@@ -71,6 +71,7 @@ const props = defineProps({
     can: Object,
 })
 
+
 // --- FILTER & SORT LOGIC ---
 const search = ref(props.filters?.search)
 const status = ref(props.filters?.status)
@@ -278,6 +279,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                 <TableHead>Category</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Assigned To</TableHead>
+                                <TableHead>Current Value</TableHead>
                                 <TableHead class="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -316,6 +318,8 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         <span>{{ asset.assigned_to_user.name }}</span>
                                     </div>
                                     <div v-else class="text-muted-foreground">N/A</div>
+                                </TableCell>
+                                <TableCell>{{ asset.depreciation ? `${asset.depreciation.current_value}` : 'N/A' }}
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <DropdownMenu>

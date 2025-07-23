@@ -123,12 +123,32 @@ const submitLog = () => {
                         </div>
                         <div class="flex justify-between">
                             <span class="text-muted-foreground">Purchase Date</span>
-                            <span>{{ props.asset?.purchase_date }}</span>
+                            <span>{{ new Date(props.asset?.purchase_date).toLocaleDateString() }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-muted-foreground">Warranty Expiry</span>
-                            <span>{{ props.asset?.warranty_expiry }}</span>
+                            <span>{{ new Date(props.asset?.warranty_expiry).toLocaleDateString() }}</span>
                         </div>
+                        <Separator />
+                        <div class="flex justify-between font-semibold">
+                            <span>Current Value</span>
+                            <span>{{ props.asset?.depreciation.current_value ?? 'N/A' }}</span>
+                        </div>
+                        <div class="flex justify-between text-muted-foreground">
+                            <span>Monthly Depreciation</span>
+                            <span>{{ props.asset?.depreciation.monthly_depreciation ?? 'N/A' }}</span>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Barcode</CardTitle>
+                    </CardHeader>
+                    <CardContent class="flex flex-col items-center justify-center space-y-4">
+                        <img :src="route('assets.barcode', props.asset?.id)" alt="Barcode" class="w-full">
+                        <Link :href="route('assets.print', props.asset?.id)" target="_blank" as="button" class="w-full">
+                        <Button variant="outline" class="w-full">Print Label</Button>
+                        </Link>
                     </CardContent>
                 </Card>
             </div>

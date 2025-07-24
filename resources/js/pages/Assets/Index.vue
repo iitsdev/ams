@@ -3,7 +3,7 @@ import { ref, watch, computed } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -181,6 +181,22 @@ const assignAsset = () => {
     })
 }
 
+//Import Logic
+
+const isImportDialogOpen = ref(false);
+const importForm = useForm({
+    file: null,
+});
+
+const submitImport = () => {
+    importForm.post(route('assets.import'), {
+        onSuccess: () => {
+            isImportDialogOpen.value = false;
+            importForm.reset();
+        }
+    })
+};
+
 
 // --- HELPER FUNCTIONS ---
 const getStatusVariant = (statusName: string) => { return 'default' }
@@ -201,14 +217,18 @@ const breadcrumbs: BreadcrumbItem[] = [
             <div class="flex items-center justify-between m-2">
                 <h2 class="text-2xl font-bold tracking-tight">Asset Management</h2>
                 <div class="flex items-center space-x-2">
-                    <Button variant="outline">
+                    <Button variant="outline" @click="isImportDialogOpen = true">
                         <Upload class="w-4 h-4 mr-2" />Import
                     </Button>
-                    <Link :href="route('assets.export')">
-                    <Button variant="outline">
-                        <Download class="w-4 h-4 mr-2" />Export
-                    </Button>
-                    </Link>
+                    <!-- <Link :href="route('assets.export')" :class="buttonVariants({ variant: 'outline' })">
+                    <Download class="w-4 h-4 mr-2" />
+                    Export
+                    </Link> -->
+                    <a :href="route('assets.export')"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                        <Download class="w-4 h-4 mr-2" />
+                        Export
+                    </a>
                     <Link v-if="can?.create_asset" :href="route('assets.create')">
                     <Button>
                         <Plus class="h-4 w-4 mr-2" />Add Asset
@@ -327,13 +347,9 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger as-child>
-                                                    <Button 
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    class="rounded-full"
-                                                    @click="openAssignDialog(asset)"
-                                                    >
-                                                    <UserPlus clas="h-4 w-4"/>
+                                                    <Button variant="ghost" size="icon" class="rounded-full"
+                                                        @click="openAssignDialog(asset)">
+                                                        <UserPlus clas="h-4 w-4" />
                                                     </Button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
@@ -446,4 +462,34 @@ const breadcrumbs: BreadcrumbItem[] = [
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
+
+    <Dialog :open="isImportDialogOpen" @update:open="isImportDialogOpen = $event">
+        <DialogContent class="sm:max-w-[425px]">
+            <DialogHeader>
+                <DialogTitle>Import Assets</DialogTitle>
+                <DialogDescription>
+                    Select a CSV or Excel file to bulk-import assets. The file must have columns with headings: `name`,
+                    `serial_number`, `purchase_cost`, `purchase_date`.
+                </DialogDescription>
+            </DialogHeader>
+            <form @submit.prevent="submitImport" class="space-y-4 py-4">
+                <div>
+                    <Label for="file">Spreadsheet File</Label>
+                    <Input id="file" type="file" @input="importForm.file = $event.target.files[0]" class="mt-1" />
+                    <progress v-if="importForm.progress" :value="importForm.progress.percentage" max="100"
+                        class="w-full mt-2">
+                        {{ importForm.progress.percentage }}%
+                    </progress>
+                    <div v-if="importForm.errors.file" class="text-sm text-red-600 mt-1">
+                        {{ importForm.errors.file }}
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" @click="isImportDialogOpen = false">Cancel</Button>
+                    <Button type="submit" :disabled="importForm.processing">Upload & Import</Button>
+                </div>
+            </form>
+        </DialogContent>
+    </Dialog>
 </template>

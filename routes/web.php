@@ -27,6 +27,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/assets/{asset}', [AssetController::class, 'destroy'])->name('assets.delete');
     Route::post('/assets/bulk-delete', [AssetController::class, 'bulkDestroy'])->name('assets.bulkDelete');
     Route::get('/assets/export', [AssetController::class, 'export'])->name('assets.export');
+    Route::post('/assets/import', [AssetController::class, 'import'])->name('assets.import');
     Route::post('/assets/{asset}/assign', [AssetController::class, 'assign'])->name('assets.assign');
     Route::get('/assets/{asset}/show', [AssetController::class, 'show'])->name('assets.show');
     Route::get('/assets/{asset}/barcode', [AssetController::class, 'barcode'])->name('assets.barcode');

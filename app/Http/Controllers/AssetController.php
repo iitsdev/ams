@@ -10,10 +10,14 @@ use App\Models\Category;
 use App\Models\Location;
 use App\Models\CheckinCheckoutLog;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 use Inertia\Inertia;
 use Illuminate\Database\Eloquent\Builder;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Picqer\Barcode\BarcodeGeneratorPNG;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\AssetsExport;
+use App\Imports\AssetsImport;
 
 class AssetController extends Controller
 {
@@ -136,9 +140,9 @@ class AssetController extends Controller
 
         return Inertia::render('assets/Create', [
             'dropdowns' => [
-                'statuses' => AssetStatus::all('id', 'name'),
-                'categories' => Category::all('id', 'name'),
-                'locations' => Location::all('id', 'name'),
+                'statuses' => AssetStatus::all(['id', 'name']),
+                'categories' => Category::all(['id', 'name']),
+                'locations' => Location::all(['id', 'name']),
             ]
         ]);
     }
@@ -220,60 +224,36 @@ class AssetController extends Controller
 
         $count = count($validated['ids']);
 
-        return to_route('assets.index')->with('success', "$count" . str('asset')->plural($count) . "deleted successfully!");
+        return to_route('assets.index')->with('success', "$count " . str('asset')->plural($count) . "deleted successfully!");
     }
 
 
 
     public function export()
     {
-        $fileName = 'assets.csv';
-        $headers = [
-            'Content-Type'        => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
-        ];
+        return Excel::download(new AssetsExport, 'assets.xlsx');
+    }
 
-        // Create a new StreamedResponse
-        return new StreamedResponse(function () {
-            // Open the output stream
-            $handle = fopen('php://output', 'w');
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', File::types(['csv', 'xlsx', 'xls'])],
+        ]);
 
-            // Add the header row
-            fputcsv($handle, [
-                'ID',
-                'Asset Name',
-                'Asset Tag',
-                'Serial Number',
-                'Category',
-                'Status',
-                'Location',
-                'Assigned To',
-                'Purchase Date',
-                'Purchase Cost',
-            ]);
+        try {
+            Excel::import(new AssetsImport, $request->file('file'));
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
 
-            // Add the data rows by chunking for better performance
-            Asset::with(['category', 'status', 'location', 'assignedToUser'])
-                ->chunk(1000, function ($assets) use ($handle) {
-                    foreach ($assets as $asset) {
-                        fputcsv($handle, [
-                            $asset->id,
-                            $asset->name,
-                            $asset->asset_tag,
-                            $asset->serial_number,
-                            $asset->category?->name,
-                            $asset->status?->name,
-                            $asset->location?->name,
-                            $asset->assignedToUser?->name,
-                            $asset->purchase_date,
-                            $asset->purchase_cost,
-                        ]);
-                    }
-                });
+            $failures = $e->failures();
+            $errors = [];
 
-            fclose($handle);
-        }, 200, $headers); // Pass the status code and headers to the response
+            foreach ($failures as $failure) {
+                $errors[] = 'Row ' . $failure->row() . ': ' . implode(', ', $failure->errors());
+            }
+            return back()->withErrors($errors);
+        }
 
+        return back()->with('success', 'Assets imported successfully!');
     }
 
     public function assign(Request $request, Asset $asset)

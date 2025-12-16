@@ -28,6 +28,14 @@ class RolesAndPermissionSeeder extends Seeder
             'run reports',
             'manage users',
             'mnanage settings',
+            'create suppliers',
+            'edit suppliers',
+            'delete suppliers',
+            'view suppliers',
+            'create departments',
+            'edit departments',
+            'delete departments',
+            'view departments',
         ];
 
         foreach ($permissions as $permission) {

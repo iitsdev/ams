@@ -8,6 +8,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\MaintenanceLogController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\DepartmentController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
@@ -32,6 +34,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/assets/{asset}/show', [AssetController::class, 'show'])->name('assets.show');
     Route::get('/assets/{asset}/barcode', [AssetController::class, 'barcode'])->name('assets.barcode');
     Route::get('/assets/{asset}/print', [AssetController::class, 'printLabel'])->name('assets.print');
+    Route::post('/assets/{asset}/reassign', [AssetController::class, 'reassign'])->name('assets.reassign');
+    Route::resource('assets', AssetController::class);
+    Route::get('/assets/{asset}/assignments', [AssetController::class, 'getAssignments'])->name('assets.assignments');
+    Route::post('/assets/{asset}/unassign', [AssetController::class, 'unassign'])->name('assets.unassign');
 
     //Locations Routes
     Route::resource('settings/locations', LocationController::class)->except(['show']);
@@ -39,6 +45,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/categories', CategoryController::class)->except(['show']);
     //User Management Routes
     Route::resource('settings/users', UserController::class)->except(['show']);
+    // Supplier routes
+    Route::resource('settings/suppliers', SupplierController::class)->except(['show']);
+    // Department routes
+    Route::resource('settings/departments', DepartmentController::class)->except(['show']);
 
     //Maintenance Route
     Route::post('/assets/{asset}/maintenance-logs', [MaintenanceLogController::class, 'store'])->name('assets.maintenance_logs.store');

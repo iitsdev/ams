@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// filepath: c:\Users\daveg\Desktop\Projects\ams\resources\js\pages\assets\Index.vue
+
 import { ref, watch, computed } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
@@ -37,7 +39,6 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-
 } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -59,7 +60,26 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { MoreHorizontal, Plus, UserPlus, Search, Upload, Download, ArrowUpDown, ArrowUp, ArrowDown, Laptop, ChevronsUpDown, Check } from 'lucide-vue-next';
+import {
+    MoreHorizontal,
+    Plus,
+    UserPlus,
+    Search,
+    Upload,
+    Download,
+    ArrowUpDown,
+    ArrowUp,
+    ArrowDown,
+    Laptop,
+    ChevronsUpDown,
+    Check,
+    Clock,
+    Calendar as CalendarIcon,
+    User,
+    FileText,
+    UserMinus,
+    MapPin
+} from 'lucide-vue-next';
 import { debounce } from 'lodash';
 import { type BreadcrumbItem } from '@/types';
 import {
@@ -69,6 +89,10 @@ import {
     TooltipTrigger
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import AssignmentHistory from '@/components/AssignmentHistory.vue'
+import axios from 'axios'
 
 const props = defineProps({
     assets: Object,
@@ -83,19 +107,22 @@ const search = ref(props.filters?.search)
 const status = ref(props.filters?.status)
 const category = ref(props.filters?.category)
 const location = ref(props.filters?.location)
+const assignedUser = ref(props.filters?.assigned_user)
 
-watch([search, status, category, location], debounce(() => {
+watch([search, status, category, location, assignedUser], debounce(() => {
     router.get(route('assets.index'), {
         search: search.value,
         status: status.value,
         category: category.value,
         location: location.value,
+        assigned_user: assignedUser.value,
         sort_by: props.filters?.sort_by,
         sort_direction: props.filters?.sort_direction,
     }, { preserveState: true, replace: true })
 }, 300))
 
-const sortBy = (column: string) => {
+// Sorting functions
+const toggleSort = (column: string) => {
     router.get(route('assets.index'), {
         ...props.filters,
         sort_by: column,
@@ -103,27 +130,51 @@ const sortBy = (column: string) => {
     }, { preserveState: true, replace: true })
 }
 
-// --- SELECTION LOGIC ---
+const isSorted = (column: string) => {
+    return props.filters?.sort_by === column
+}
+
+const sortDirection = computed(() => props.filters?.sort_direction || 'desc')
+
+// --- SELECTION LOGIC (FIXED WITH DEBUGGING) ---
 const selectedAssets = ref<number[]>([])
-const pageAssetIds = computed(() => props.assets?.data.map((asset: any) => asset.id))
-const allOnPageSelected = computed(() =>
-    pageAssetIds.value.length > 0 && pageAssetIds.value.every(id => selectedAssets.value.includes(id))
-)
+
+const pageAssetIds = computed(() => props.assets?.data.map((asset: any) => asset.id) || [])
+
+const allOnPageSelected = computed(() => {
+    if (pageAssetIds.value.length === 0) return false
+    return pageAssetIds.value.every(id => selectedAssets.value.includes(id))
+})
+
+const isAssetSelected = (assetId: number) => {
+    return selectedAssets.value.includes(assetId)
+}
+
+// Simpler toggle function
+function toggleSelectAll() {
+    if (allOnPageSelected.value) {
+        // Deselect all on current page
+        selectedAssets.value = selectedAssets.value.filter(
+            id => !pageAssetIds.value.includes(id)
+        )
+    } else {
+        // Select all on current page
+        const newSelections = [...selectedAssets.value]
+        pageAssetIds.value.forEach(id => {
+            if (!newSelections.includes(id)) {
+                newSelections.push(id)
+            }
+        })
+        selectedAssets.value = newSelections
+    }
+}
+
 function toggleAssetSelection(assetId: number) {
     const index = selectedAssets.value.indexOf(assetId)
     if (index === -1) {
-        selectedAssets.value.push(assetId)
-    }
-    else {
-        selectedAssets.value.splice(index, 1)
-    }
-}
-function toggleSelectAllOnPage(checked: boolean) {
-    if (checked) {
-        selectedAssets.value = [...new Set([...selectedAssets.value, ...pageAssetIds.value])]
-    }
-    else {
-        selectedAssets.value = selectedAssets.value.filter(id => !pageAssetIds.value.includes(id))
+        selectedAssets.value = [...selectedAssets.value, assetId]
+    } else {
+        selectedAssets.value = selectedAssets.value.filter(id => id !== assetId)
     }
 }
 
@@ -137,10 +188,12 @@ const confirmSingleDeletion = (asset: any) => {
     assetToDelete.value = asset
     isDialogOpen.value = true
 }
+
 const confirmBulkDeletion = () => {
     isBulkDelete.value = true
     isDialogOpen.value = true
 }
+
 const processDeletion = () => {
     const onSuccess = () => { selectedAssets.value = [] }
     if (isBulkDelete.value) {
@@ -156,33 +209,28 @@ const assetToAssign = ref<any>(null);
 const comboboxOpen = ref(false);
 const assignForm = useForm({
     user_id: '',
+    notes: '',
+    document: null,
 });
 
-
-
-// const filteredUsers = computed(() =>
-//     props.dropdowns?.users.filter(user => form.user_id ? user.id !== form.user_id : true)
-// )
-
 const openAssignDialog = (asset: any) => {
-    assetToAssign.value = asset
-    isAssignDialogOpen.value = true
-}
+    assetToAssign.value = asset;
+    assignForm.user_id = '';
+    assignForm.notes = '';
+    assignForm.document = null;
+    isAssignDialogOpen.value = true;
+};
 
 const assignAsset = () => {
-    if (!assetToAssign.value) return;
-
     assignForm.post(route('assets.assign', assetToAssign.value.id), {
-        preserveScroll: true,
         onSuccess: () => {
-            isAssignDialogOpen.value = false
-            assignForm.reset()
+            isAssignDialogOpen.value = false;
+            assignForm.reset();
         }
-    })
-}
+    });
+};
 
-//Import Logic
-
+// Import Logic
 const isImportDialogOpen = ref(false);
 const importForm = useForm({
     file: null,
@@ -197,13 +245,114 @@ const submitImport = () => {
     })
 };
 
+// Reassign Dialog
+const reassignDialog = ref(false)
+const selectedAsset = ref<any | null>(null)
+const reassignComboboxOpen = ref(false)
 
-// --- HELPER FUNCTIONS ---
+const reassignForm = useForm({
+    user_id: '',
+    notes: '',
+    document: null as File | null,
+})
+
+const openReassignDialog = (asset: any) => {
+    selectedAsset.value = asset
+    reassignForm.user_id = asset.assigned_to_user?.id?.toString() || ''
+    reassignForm.notes = ''
+    reassignForm.document = null
+    reassignDialog.value = true
+}
+
+const submitReassign = () => {
+    if (selectedAsset.value) {
+        reassignForm.post(route('assets.reassign', selectedAsset.value.id), {
+            onSuccess: () => {
+                reassignDialog.value = false
+                reassignForm.reset()
+            }
+        })
+    }
+}
+
+// History Dialog
+const historyDialog = ref(false)
+const selectedAssetForHistory = ref<any>(null)
+const loadingHistory = ref(false)
+
+const viewAssignmentHistory = async (asset: any) => {
+    selectedAssetForHistory.value = {
+        id: asset.id,
+        name: asset.name,
+        asset_tag: asset.asset_tag,
+        assignments: []
+    }
+    historyDialog.value = true
+    loadingHistory.value = true
+
+    try {
+        const response = await axios.get(route('assets.assignments', asset.id))
+        selectedAssetForHistory.value = response.data.asset
+    } catch (error) {
+        console.error('Failed to load assignment history:', error)
+    } finally {
+        loadingHistory.value = false
+    }
+}
+
+// Unassign Dialog
+const unassignDialog = ref(false)
+const assetToUnassign = ref<any>(null)
+
+const confirmUnassign = (asset: any) => {
+    assetToUnassign.value = asset
+    unassignDialog.value = true
+}
+
+const unassignAsset = () => {
+    if (assetToUnassign.value) {
+        router.post(route('assets.unassign', assetToUnassign.value.id), {}, {
+            onSuccess: () => {
+                unassignDialog.value = false
+                assetToUnassign.value = null
+            }
+        })
+    }
+}
+
+// Filter helpers
+const hasActiveFilters = computed(() => {
+    return (search.value && search.value !== '') ||
+        (status.value && status.value !== 'all') ||
+        (category.value && category.value !== 'all') ||
+        (location.value && location.value !== 'all') ||
+        (assignedUser.value && assignedUser.value !== 'all')
+})
+
+const clearAllFilters = () => {
+    search.value = ''
+    status.value = 'all'
+    category.value = 'all'
+    location.value = 'all'
+    assignedUser.value = 'all'
+}
+
+const formatDate = (date: string | null) => {
+    if (!date) return 'N/A'
+    return new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    })
+}
+
+// Helper functions
 const getStatusVariant = (statusName: string) => { return 'default' }
 const getInitials = (name: string | null | undefined) => {
     if (!name) return '??'
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
 }
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Assets', href: route('assets.index') },
 ];
@@ -220,19 +369,15 @@ const breadcrumbs: BreadcrumbItem[] = [
                     <Button variant="outline" @click="isImportDialogOpen = true">
                         <Upload class="w-4 h-4 mr-2" />Import
                     </Button>
-                    <!-- <Link :href="route('assets.export')" :class="buttonVariants({ variant: 'outline' })">
-                    <Download class="w-4 h-4 mr-2" />
-                    Export
-                    </Link> -->
                     <a :href="route('assets.export')"
                         class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
                         <Download class="w-4 h-4 mr-2" />
                         Export
                     </a>
                     <Link v-if="can?.create_asset" :href="route('assets.create')">
-                    <Button>
-                        <Plus class="h-4 w-4 mr-2" />Add Asset
-                    </Button>
+                        <Button>
+                            <Plus class="h-4 w-4 mr-2" />Add Asset
+                        </Button>
                     </Link>
                 </div>
             </div>
@@ -241,7 +386,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         <div class="p-1">
             <div class="space-y-4 rounded-lg border bg-card text-card-foreground shadow-sm p-4">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 flex-wrap gap-2">
                         <div class="relative w-full max-w-sm">
                             <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input v-model="search" placeholder="Search..." class="pl-8" />
@@ -253,7 +398,8 @@ const breadcrumbs: BreadcrumbItem[] = [
                             <SelectContent>
                                 <SelectItem value="all">All Statuses</SelectItem>
                                 <SelectItem v-for="item in dropdowns?.statuses" :key="item.id" :value="String(item.id)">
-                                    {{ item.name }}</SelectItem>
+                                    {{ item.name }}
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                         <Select v-model="category">
@@ -264,7 +410,8 @@ const breadcrumbs: BreadcrumbItem[] = [
                                 <SelectItem value="all">All Categories</SelectItem>
                                 <SelectItem v-for="item in dropdowns?.categories" :key="item.id"
                                     :value="String(item.id)">
-                                    {{ item.name }}</SelectItem>
+                                    {{ item.name }}
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                         <Select v-model="location">
@@ -272,10 +419,32 @@ const breadcrumbs: BreadcrumbItem[] = [
                                 <SelectValue placeholder="Filter by Location" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All Location</SelectItem>
+                                <SelectItem value="all">All Locations</SelectItem>
                                 <SelectItem v-for="item in dropdowns?.locations" :key="item.id"
                                     :value="String(item.id)">
-                                    {{ item.name }}</SelectItem>
+                                    {{ item.name }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select v-model="assignedUser">
+                            <SelectTrigger class="w-[200px]">
+                                <SelectValue placeholder="Filter by User" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Users</SelectItem>
+                                <SelectItem value="unassigned">
+                                    <div class="flex items-center gap-2">
+                                        <UserMinus class="h-4 w-4" />
+                                        <span>Unassigned</span>
+                                    </div>
+                                </SelectItem>
+                                <SelectItem v-for="user in dropdowns?.users" :key="user.id" :value="String(user.id)">
+                                    <div class="flex items-center gap-2">
+                                        <User class="h-4 w-4" />
+                                        <span>{{ user.name }}</span>
+                                    </div>
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -285,53 +454,95 @@ const breadcrumbs: BreadcrumbItem[] = [
                         </Button>
                     </div>
                 </div>
+
+                <div v-if="hasActiveFilters" class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm text-muted-foreground">Active filters:</span>
+                    <Badge v-if="search" variant="secondary" class="gap-1">
+                        Search: {{ search }}
+                        <button @click="search = ''" class="ml-1 hover:text-destructive">×</button>
+                    </Badge>
+                    <Badge v-if="status && status !== 'all'" variant="secondary" class="gap-1">
+                        Status: {{dropdowns?.statuses.find(s => String(s.id) === status)?.name}}
+                        <button @click="status = 'all'" class="ml-1 hover:text-destructive">×</button>
+                    </Badge>
+                    <Badge v-if="category && category !== 'all'" variant="secondary" class="gap-1">
+                        Category: {{dropdowns?.categories.find(c => String(c.id) === category)?.name}}
+                        <button @click="category = 'all'" class="ml-1 hover:text-destructive">×</button>
+                    </Badge>
+                    <Badge v-if="location && location !== 'all'" variant="secondary" class="gap-1">
+                        Location: {{dropdowns?.locations.find(l => String(l.id) === location)?.name}}
+                        <button @click="location = 'all'" class="ml-1 hover:text-destructive">×</button>
+                    </Badge>
+                    <Badge v-if="assignedUser && assignedUser !== 'all'" variant="secondary" class="gap-1">
+                        User: {{assignedUser === 'unassigned' ? 'Unassigned' :
+                            dropdowns?.users.find(u => String(u.id) === assignedUser)?.name}}
+                        <button @click="assignedUser = 'all'" class="ml-1 hover:text-destructive">×</button>
+                    </Badge>
+                    <Button v-if="hasActiveFilters" variant="ghost" size="sm" @click="clearAllFilters" class="text-xs">
+                        Clear all filters
+                    </Button>
+                </div>
+
                 <div class="border rounded-md">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead class="w-[40px]">
-                                    <Checkbox :checked="allOnPageSelected" @update:checked="toggleSelectAllOnPage" />
+                                <TableHead class="w-12">
+                                    <!-- Native checkbox for debugging -->
+                                    <input type="checkbox" :checked="allOnPageSelected" @change="toggleSelectAll"
+                                        class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary focus:ring-2 cursor-pointer" />
                                 </TableHead>
                                 <TableHead>
-                                    <Button variant="ghost" @click="sortBy('name')">
-                                        Assets name
-                                        <template v-if="filters?.sort_by === 'name'">
-                                            <ArrowUp v-if="filters.sort_direction === 'asc'" class="w-4 h-4 ml-2" />
-                                            <ArrowDown v-else class="w-4 h-4 ml-2" />
-                                        </template>
-                                        <ArrowUpDown v-else class="w-4 h-4 ml-2 text-muted-foreground" />
+                                    <Button variant="ghost" @click="toggleSort('name')" class="flex items-center gap-1">
+                                        Asset Name
+                                        <ArrowUpDown v-if="!isSorted('name')" class="h-4 w-4" />
+                                        <ArrowUp v-else-if="sortDirection === 'asc'" class="h-4 w-4" />
+                                        <ArrowDown v-else class="h-4 w-4" />
                                     </Button>
                                 </TableHead>
                                 <TableHead>Category</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Location</TableHead>
                                 <TableHead>Assigned To</TableHead>
-                                <TableHead>Current Value</TableHead>
+                                <TableHead>Purchase Date</TableHead>
+                                <TableHead>Age</TableHead>
+                                <TableHead>Value</TableHead>
                                 <TableHead class="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow v-if="assets?.data.length === 0">
-                                <TableCell colspan="6" class="text-center text-muted-foreground py-8">No assets found.
+                                <TableCell colspan="10" class="text-center text-muted-foreground py-8">
+                                    No assets found.
                                 </TableCell>
                             </TableRow>
                             <TableRow v-for="asset in assets?.data" :key="asset.id">
                                 <TableCell>
-                                    <Checkbox :checked="selectedAssets.includes(asset.id)"
-                                        @update:checked="() => toggleAssetSelection(asset.id)" />
+                                    <!-- Native checkbox for debugging -->
+                                    <input type="checkbox" :checked="isAssetSelected(asset.id)"
+                                        @change="toggleAssetSelection(asset.id)"
+                                        class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary focus:ring-2 cursor-pointer" />
                                 </TableCell>
                                 <TableCell>
                                     <div class="flex items-center gap-3">
                                         <Laptop class="h-8 w-8 text-muted-foreground" />
                                         <div>
                                             <div class="font-medium">{{ asset.name }}</div>
-                                            <div class="text-sm text-muted-foreground">{{ asset.serial_number }}</div>
+                                            <div class="text-sm text-muted-foreground">{{ asset.asset_tag }}</div>
                                         </div>
                                     </div>
                                 </TableCell>
-                                <TableCell>{{ asset.category?.name }}</TableCell>
+                                <TableCell>{{ asset.category?.name || 'N/A' }}</TableCell>
                                 <TableCell>
-                                    <Badge :variant="getStatusVariant(asset.status.name)">{{ asset.status.name }}
+                                    <Badge :variant="getStatusVariant(asset.status?.name || '')">
+                                        {{ asset.status?.name || 'N/A' }}
                                     </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <div class="flex items-center gap-2">
+                                        <MapPin class="h-4 w-4 text-muted-foreground" />
+                                        <span>{{ asset.location?.name || 'N/A' }}</span>
+                                    </div>
                                 </TableCell>
                                 <TableCell>
                                     <div v-if="asset.assigned_to_user" class="flex items-center gap-2">
@@ -342,6 +553,37 @@ const breadcrumbs: BreadcrumbItem[] = [
                                             </AvatarFallback>
                                         </Avatar>
                                         <span>{{ asset.assigned_to_user.name }}</span>
+
+                                        <div class="flex items-center gap-1 ml-auto">
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger as-child>
+                                                        <Button variant="ghost" size="icon" class="h-8 w-8 rounded-full"
+                                                            @click="openReassignDialog(asset)">
+                                                            <UserPlus class="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Reassign to Another User</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger as-child>
+                                                        <Button variant="ghost" size="icon"
+                                                            class="h-8 w-8 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                            @click="confirmUnassign(asset)">
+                                                            <UserMinus class="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Remove Assignment</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </div>
                                     </div>
                                     <div v-else>
                                         <TooltipProvider>
@@ -349,7 +591,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                                 <TooltipTrigger as-child>
                                                     <Button variant="ghost" size="icon" class="rounded-full"
                                                         @click="openAssignDialog(asset)">
-                                                        <UserPlus clas="h-4 w-4" />
+                                                        <UserPlus class="h-4 w-4" />
                                                     </Button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
@@ -359,7 +601,20 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         </TooltipProvider>
                                     </div>
                                 </TableCell>
-                                <TableCell>{{ asset.depreciation ? `${asset.depreciation.current_value}` : 'N/A' }}
+                                <TableCell>
+                                    <div class="text-sm">{{ formatDate(asset.purchase_date) }}</div>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge v-if="asset.years_since_purchase" variant="secondary">
+                                        {{ asset.years_since_purchase }}
+                                    </Badge>
+                                    <span v-else class="text-muted-foreground text-sm">N/A</span>
+                                </TableCell>
+                                <TableCell>
+                                    <div v-if="asset.depreciation" class="text-sm">
+                                        ${{ asset.depreciation.current_value }}
+                                    </div>
+                                    <span v-else class="text-muted-foreground text-sm">N/A</span>
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <DropdownMenu>
@@ -372,11 +627,16 @@ const breadcrumbs: BreadcrumbItem[] = [
                                             <DropdownMenuItem as-child>
                                                 <Link :href="route('assets.show', asset.id)">View</Link>
                                             </DropdownMenuItem>
+                                            <DropdownMenuItem @click="viewAssignmentHistory(asset)">
+                                                <Clock class="h-4 w-4 mr-2" />
+                                                Assignment History
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem as-child>
                                                 <Link :href="route('assets.edit', asset.id)">Edit</Link>
                                             </DropdownMenuItem>
                                             <DropdownMenuItem @click="confirmSingleDeletion(asset)"
-                                                class="text-red-600">Delete
+                                                class="text-red-600">
+                                                Delete
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -391,6 +651,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         </div>
     </AppLayout>
 
+    <!-- Assign Dialog -->
     <Dialog :open="isAssignDialogOpen" @update:open="isAssignDialogOpen = $event">
         <DialogContent class="sm:max-w-[425px]">
             <DialogHeader>
@@ -398,53 +659,66 @@ const breadcrumbs: BreadcrumbItem[] = [
                 <DialogDescription>
                     Assign "{{ assetToAssign?.name }}" to a user.
                 </DialogDescription>
-                <form @submit.prevent="assignAsset" class="space-y-4 py-4">
-                    <div>
-                        <Label for="user" class="mb-2 block">User</Label>
-
-                        <Popover v-model:open="comboboxOpen">
-                            <PopoverTrigger as-child>
-                                <Button variant="outline" role="combobox" :aria-expanded="comboboxOpen"
-                                    class="w-full justify-between">
-                                    {{assignForm.user_id ? dropdowns?.users.find((user) => user.id ===
-                                        assignForm.user_id)?.name : "Select user..."}}
-                                    <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent class="w-[375px] p-0">
-                                <Command>
-                                    <CommandInput placeholder="Search user..." />
-                                    <CommandEmpty>No user found.</CommandEmpty>
-                                    <CommandList>
-                                        <CommandGroup>
-                                            <CommandItem v-for="user in dropdowns?.users" :key="user.id"
-                                                :value="user.id" @select="(ev) => {
-                                                    assignForm.user_id = ev.detail.value
-                                                    comboboxOpen = false
-                                                }">
-                                                <Check
-                                                    :class="cn('mr-2 h-4 w-4', assignForm.user_id === user.id ? 'opacity-100' : 'opacity-0')" />
-                                                {{ user.name }}
-                                            </CommandItem>
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                        <div v-if="assignForm.errors.user_id" class="text-sm text-red-600 mt-1">
-                            {{ assignForm.errors.user_id }}
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end space-x-2">
-                        <Button type="button" variant="outline" @click="isAssignDialogOpen = false">Cancel</Button>
-                        <Button type="submit" :disabled="assignForm.processing">Assign Asset</Button>
-                    </div>
-                </form>
             </DialogHeader>
+            <form @submit.prevent="assignAsset" class="space-y-4 py-4">
+                <div>
+                    <Label for="user" class="mb-2 block">User</Label>
+
+                    <Popover v-model:open="comboboxOpen">
+                        <PopoverTrigger as-child>
+                            <Button variant="outline" role="combobox" :aria-expanded="comboboxOpen"
+                                class="w-full justify-between">
+                                {{assignForm.user_id ? dropdowns?.users.find((user) => user.id ===
+                                    assignForm.user_id)?.name : "Select user..."}}
+                                <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent class="w-[375px] p-0">
+                            <Command>
+                                <CommandInput placeholder="Search user..." />
+                                <CommandEmpty>No user found.</CommandEmpty>
+                                <CommandList>
+                                    <CommandGroup>
+                                        <CommandItem v-for="user in dropdowns?.users" :key="user.id" :value="user.id"
+                                            @select="(ev) => {
+                                                assignForm.user_id = ev.detail.value
+                                                comboboxOpen = false
+                                            }">
+                                            <Check
+                                                :class="cn('mr-2 h-4 w-4', assignForm.user_id === user.id ? 'opacity-100' : 'opacity-0')" />
+                                            {{ user.name }}
+                                        </CommandItem>
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                    <div v-if="assignForm.errors.user_id" class="text-sm text-red-600 mt-1">
+                        {{ assignForm.errors.user_id }}
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="notes">Notes (Optional)</Label>
+                    <Textarea id="notes" v-model="assignForm.notes" placeholder="Add any assignment notes..." />
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="document">Attachment (Optional)</Label>
+                    <Input id="document" type="file" @input="assignForm.document = $event.target.files[0]"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                    <p class="text-xs text-muted-foreground">Max 5MB. Supported: PDF, DOC, DOCX, JPG, PNG</p>
+                </div>
+
+                <div class="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" @click="isAssignDialogOpen = false">Cancel</Button>
+                    <Button type="submit" :disabled="assignForm.processing">Assign Asset</Button>
+                </div>
+            </form>
         </DialogContent>
     </Dialog>
 
+    <!-- Delete Dialog -->
     <AlertDialog :open="isDialogOpen" @update:open="(value) => isDialogOpen = value">
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -463,6 +737,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         </AlertDialogContent>
     </AlertDialog>
 
+    <!-- Import Dialog -->
     <Dialog :open="isImportDialogOpen" @update:open="isImportDialogOpen = $event">
         <DialogContent class="sm:max-w-[425px]">
             <DialogHeader>
@@ -492,4 +767,231 @@ const breadcrumbs: BreadcrumbItem[] = [
             </form>
         </DialogContent>
     </Dialog>
+
+    <!-- Reassign Dialog -->
+    <Dialog v-model:open="reassignDialog">
+        <DialogContent class="sm:max-w-[500px]">
+            <DialogHeader>
+                <DialogTitle>
+                    {{ selectedAsset?.assigned_to_user ? 'Reassign Asset' : 'Assign Asset' }}
+                </DialogTitle>
+                <DialogDescription>
+                    {{ selectedAsset?.assigned_to_user
+                        ? `Reassign "${selectedAsset?.name}" to a different user`
+                        : `Assign "${selectedAsset?.name}" to a user`
+                    }}
+                </DialogDescription>
+            </DialogHeader>
+
+            <form @submit.prevent="submitReassign" class="space-y-4 py-4">
+                <div class="space-y-2">
+                    <Label for="reassign-user" class="mb-2 block">Select User *</Label>
+
+                    <Popover v-model:open="reassignComboboxOpen">
+                        <PopoverTrigger as-child>
+                            <Button variant="outline" role="combobox" :aria-expanded="reassignComboboxOpen"
+                                class="w-full justify-between">
+                                {{reassignForm.user_id ? dropdowns?.users.find((user) => user.id.toString() ===
+                                    reassignForm.user_id)?.name : "Select user..."}}
+                                <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent class="w-[450px] p-0">
+                            <Command>
+                                <CommandInput placeholder="Search user..." />
+                                <CommandEmpty>No user found.</CommandEmpty>
+                                <CommandList>
+                                    <CommandGroup>
+                                        <CommandItem v-for="user in dropdowns?.users" :key="user.id"
+                                            :value="user.id.toString()" @select="(ev) => {
+                                                reassignForm.user_id = ev.detail.value
+                                                reassignComboboxOpen = false
+                                            }">
+                                            <Check
+                                                :class="cn('mr-2 h-4 w-4', reassignForm.user_id === user.id.toString() ? 'opacity-100' : 'opacity-0')" />
+                                            {{ user.name }}
+                                        </CommandItem>
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                    <div v-if="reassignForm.errors.user_id" class="text-sm text-red-600 mt-1">
+                        {{ reassignForm.errors.user_id }}
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="reassign-notes">Notes (Optional)</Label>
+                    <Textarea id="reassign-notes" v-model="reassignForm.notes" placeholder="Add assignment notes..."
+                        rows="3" />
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="reassign-document">Attachment (Optional)</Label>
+                    <Input id="reassign-document" type="file"
+                        @change="reassignForm.document = ($event.target as HTMLInputElement).files?.[0] || null"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                    <p class="text-xs text-muted-foreground">
+                        Max 5MB. Supported: PDF, DOC, DOCX, JPG, PNG
+                    </p>
+                </div>
+
+                <div class="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" @click="reassignDialog = false">
+                        Cancel
+                    </Button>
+                    <Button type="submit" :disabled="reassignForm.processing">
+                        {{ reassignForm.processing ? 'Processing...' : (selectedAsset?.assigned_to_user ? 'Reassign' :
+                            'Assign') }}
+                    </Button>
+                </div>
+            </form>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Assignment History Dialog -->
+    <Dialog v-model:open="historyDialog">
+        <DialogContent class="max-w-4xl max-h-[85vh] flex flex-col">
+            <DialogHeader class="flex-shrink-0">
+                <DialogTitle>Assignment History</DialogTitle>
+                <DialogDescription v-if="selectedAssetForHistory">
+                    {{ selectedAssetForHistory?.name }} - {{ selectedAssetForHistory?.asset_tag }}
+                </DialogDescription>
+            </DialogHeader>
+
+            <div class="flex-1 overflow-y-auto -mx-6 px-6">
+                <div v-if="loadingHistory" class="flex items-center justify-center py-12">
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <p class="text-sm text-muted-foreground">Loading assignment history...</p>
+                    </div>
+                </div>
+
+                <div v-else-if="selectedAssetForHistory">
+                    <div class="space-y-4">
+                        <div v-if="!selectedAssetForHistory.assignments || selectedAssetForHistory.assignments.length === 0"
+                            class="text-center py-8 text-muted-foreground">
+                            <User class="h-12 w-12 mx-auto mb-3 opacity-50" />
+                            <p>No assignment history available</p>
+                            <p class="text-sm">This asset has never been assigned to anyone</p>
+                        </div>
+
+                        <div v-else class="space-y-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <Badge variant="secondary">
+                                    {{ selectedAssetForHistory.assignments.length }}
+                                    {{ selectedAssetForHistory.assignments.length === 1 ? 'Assignment' : 'Assignments'
+                                    }}
+                                </Badge>
+                            </div>
+
+                            <div v-for="assignment in selectedAssetForHistory.assignments" :key="assignment.id"
+                                class="relative border rounded-lg p-4 hover:bg-accent/50 transition-colors"
+                                :class="{ 'border-primary bg-primary/5': assignment.is_current }">
+                                <Badge v-if="assignment.is_current" variant="default" class="absolute top-2 right-2">
+                                    Current
+                                </Badge>
+
+                                <div class="flex items-start gap-4">
+                                    <Avatar class="h-12 w-12">
+                                        <AvatarFallback>{{ getInitials(assignment.user.name) }}</AvatarFallback>
+                                    </Avatar>
+
+                                    <div class="flex-1 space-y-3">
+                                        <div>
+                                            <h4 class="font-semibold">{{ assignment.user.name }}</h4>
+                                            <p class="text-sm text-muted-foreground">{{ assignment.user.email }}</p>
+                                            <Badge v-if="assignment.user.department" variant="outline" class="mt-1">
+                                                {{ assignment.user.department.name }}
+                                            </Badge>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                            <div class="flex items-center gap-2">
+                                                <CalendarIcon class="h-4 w-4 text-muted-foreground" />
+                                                <div>
+                                                    <p class="text-muted-foreground">Assigned</p>
+                                                    <p class="font-medium">{{ new
+                                                        Date(assignment.assigned_at).toLocaleDateString() }}</p>
+                                                </div>
+                                            </div>
+
+                                            <div v-if="assignment.returned_at" class="flex items-center gap-2">
+                                                <CalendarIcon class="h-4 w-4 text-muted-foreground" />
+                                                <div>
+                                                    <p class="text-muted-foreground">Returned</p>
+                                                    <p class="font-medium">{{ new
+                                                        Date(assignment.returned_at).toLocaleDateString() }}</p>
+                                                </div>
+                                            </div>
+                                            <div v-else class="flex items-center gap-2">
+                                                <Clock class="h-4 w-4 text-green-600" />
+                                                <div>
+                                                    <p class="text-muted-foreground">In Use For</p>
+                                                    <p class="font-medium text-green-600">{{ assignment.duration_days }}
+                                                        days</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex items-center gap-2">
+                                            <Badge variant="secondary" class="flex items-center gap-1">
+                                                <Clock class="h-3 w-3" />
+                                                Duration: {{ assignment.duration_days }} days
+                                            </Badge>
+                                        </div>
+
+                                        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <User class="h-4 w-4" />
+                                            <span>Assigned by {{ assignment.assigned_by.name }}</span>
+                                        </div>
+
+                                        <div v-if="assignment.notes" class="bg-muted/50 rounded-md p-3">
+                                            <p class="text-sm font-medium mb-1">Notes:</p>
+                                            <p class="text-sm text-muted-foreground">{{ assignment.notes }}</p>
+                                        </div>
+
+                                        <div v-if="assignment.document_path">
+                                            <Button variant="outline" size="sm" as="a"
+                                                :href="`/storage/${assignment.document_path}`" target="_blank"
+                                                class="gap-2">
+                                                <FileText class="h-4 w-4" />
+                                                View Document
+                                                <Download class="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Unassign Confirmation Dialog -->
+    <AlertDialog :open="unassignDialog" @update:open="unassignDialog = $event">
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Remove User Assignment?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Are you sure you want to remove <strong>{{ assetToUnassign?.assigned_to_user?.name }}</strong> from
+                    <strong>"{{ assetToUnassign?.name }}"</strong>?
+                    <br><br>
+                    The asset status will be changed to <strong>"In Stock"</strong> and the assignment will be marked as
+                    returned.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction as-child>
+                    <Button variant="destructive" @click="unassignAsset">
+                        Remove Assignment
+                    </Button>
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
 </template>

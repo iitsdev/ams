@@ -12,25 +12,26 @@ class MaintenanceLog extends Model
 
     protected $fillable = [
         'asset_id',
-        'maintenance_type',
+        'type',
         'description',
-        'cost',
         'performed_by',
         'performed_at',
-
+        'cost',
+        'notes',
     ];
 
-
+    protected $casts = [
+        'performed_at' => 'datetime',
+        'cost' => 'decimal:2',
+    ];
 
     public function asset(): BelongsTo
     {
-
         return $this->belongsTo(Asset::class);
     }
 
     public function performedByUser(): BelongsTo
     {
-
         return $this->belongsTo(User::class, 'performed_by');
     }
 }

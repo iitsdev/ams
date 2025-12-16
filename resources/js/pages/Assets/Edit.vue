@@ -32,15 +32,22 @@ const breadcrumbs: BreadcrumbItem[] = [
 ]
 
 const form = useForm({
-    name: props.asset?.name,
-    category_id: props.asset?.category_id,
-    status_id: props.asset?.status_id,
-    location_id: props.asset?.location_id,
-    serial_number: props.asset?.serial_number,
-    purchase_date: props.asset?.purchase_date,
-    purchase_cost: props.asset?.purchase_cost,
-    warranty_expiry: props.asset?.warranty_expiry,
-    description: props.asset?.description,
+    name: props.asset?.name || '',
+    asset_tag: props.asset?.asset_tag || '',
+    serial_number: props.asset?.serial_number || '',
+    model: props.asset?.model || '',
+    brand: props.asset?.brand || '',
+    category_id: props.asset?.category_id || '',
+    status_id: props.asset?.status_id || '',
+    location_id: props.asset?.location_id || '',
+    purchase_date: props.asset?.purchase_date || '',
+    deployed_at: props.asset?.deployed_at || '',
+    purchase_cost: props.asset?.purchase_cost || '',
+    supplier_id: props.asset?.supplier_id || '',
+    warranty_expiry: props.asset?.warranty_expiry || '',
+    notes: props.asset?.notes || '',
+    specifications: props.asset?.specifications || '',
+    image: null,
 })
 
 const submit = () => {
@@ -105,6 +112,13 @@ const submit = () => {
                                 <Input id="purchase_date" v-model="form.purchase_date" type="date" />
                                 <div v-if="form.errors.purchase_date" class="text-sm text-red-600">
                                     {{ form.errors.purchase_date }}
+                                </div>
+                            </div>
+                            <div class="grid gap-3">
+                                <Label for="deployed_at">Deployment Date</Label>
+                                <Input id="deployed_at" v-model="form.deployed_at" type="date" />
+                                <div v-if="form.errors.deployed_at" class="text-sm text-red-600">
+                                    {{ form.errors.deployed_at }}
                                 </div>
                             </div>
                             <div class="grid gap-3">

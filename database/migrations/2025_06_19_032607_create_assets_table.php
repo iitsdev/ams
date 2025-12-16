@@ -24,11 +24,17 @@ return new class extends Migration
             $table->foreignId('status_id')->nullable()->constrained('asset_statuses')->onDelete('set null');
 
             $table->date('purchase_date')->nullable();
+            $table->date('deployed_at')->nullable();
             $table->decimal('purchase_cost', 10, 2)->nullable();
             $table->date('warranty_expiry')->nullable();
 
             $table->foreignId('assigned_to')->nullable()->constrained('users')->onDelete('set null');
             $table->foreignId('created_by')->constrained('users');
+
+            $table->string('brand')->nullable()->after('description');
+            $table->string('model')->nullable()->after('brand');
+            $table->text('specifications')->nullable()->after('model');
+            $table->foreignId('supplier_id')->nullable()->after('location_id')->constrained('suppliers')->onDelete('set null');
 
             $table->timestamps();
             $table->softDeletes();

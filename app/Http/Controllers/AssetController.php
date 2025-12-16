@@ -9,6 +9,8 @@ use App\Models\AssetStatus;
 use App\Models\Category;
 use App\Models\Location;
 use App\Models\CheckinCheckoutLog;
+use App\Models\AssetAssignment;
+use App\Models\Supplier;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 use Inertia\Inertia;
@@ -23,8 +25,7 @@ class AssetController extends Controller
 {
     public function index(Request $request)
     {
-
-        $filters = $request->only('search', 'status', 'category', 'location');
+        $filters = $request->only('search', 'status', 'category', 'location', 'assigned_user');
         $sortBy = $request->input('sort_by', 'created_at');
         $sortDirection = $request->input('sort_direction', 'desc');
 
@@ -34,15 +35,13 @@ class AssetController extends Controller
             $sortBy = 'created_at';
         }
 
-        //Fetch the assets from the database
-        // We use `with()` to eager-load related data and prevent N+1 query issues.        
-
         $assets = Asset::query()
-            ->with(['category', 'status', 'location', 'assignedToUser'])
+            ->with(['category', 'status', 'location', 'assignedToUser', 'supplier'])
             ->when($filters['search'] ?? null, function (Builder $query, $search) {
                 $query->where(function (Builder $query) use ($search) {
                     $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('asset_tag', 'like', "%{$search}%");
+                        ->orWhere('asset_tag', 'like', "%{$search}%")
+                        ->orWhere('serial_number', 'like', "%{$search}%");
                 });
             })
             ->when($filters['status'] ?? null, function (Builder $query, $statusId) {
@@ -54,17 +53,25 @@ class AssetController extends Controller
                 $query->where('category_id', $categoryId);
             })
             ->when($filters['location'] ?? null, function (Builder $query, $locationId) {
-                if ($locationId === 'all')  return;
+                if ($locationId === 'all') return;
                 $query->where('location_id', $locationId);
+            })
+            ->when($filters['assigned_user'] ?? null, function (Builder $query, $userId) {
+                if ($userId === 'all') return;
+                if ($userId === 'unassigned') {
+                    $query->whereNull('assigned_to');
+                } else {
+                    $query->where('assigned_to', $userId);
+                }
             })
             ->orderBy($sortBy, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 
-
         $assets->getCollection()->transform(function ($asset) {
             $asset->depreciation = $this->calculateDepreciation($asset);
-
+            // Make sure the years_since_purchase accessor is called
+            $asset->makeVisible('years_since_purchase');
             return $asset;
         });
 
@@ -75,25 +82,42 @@ class AssetController extends Controller
                 'sort_direction' => $sortDirection,
             ]),
             'dropdowns' => [
+                'users' => User::all(['id', 'name']),
                 'statuses' => AssetStatus::all(['id', 'name']),
                 'categories' => Category::all(['id', 'name']),
                 'locations' => Location::all(['id', 'name']),
-                'users' => User::all(['id', 'name']),
             ],
             'can' => [
                 'create_asset' => auth()->user()->can('create assets'),
+                'edit_asset' => auth()->user()->can('edit assets'),
+                'assign_asset' => auth()->user()->can('assign assets'),
             ]
         ]);
     }
     public function show(Asset $asset)
     {
-        $asset->load(['category', 'status', 'location', 'assignedToUser', 'maintenanceLogs.performedByUser']);
+        $asset->load([
+            'category', 
+            'status', 
+            'location', 
+            'supplier',
+            'assignedToUser.department', 
+            'maintenanceLogs.performedByUser',
+            'assignments' => function ($query) {
+                $query->with(['user.department', 'assignedBy'])
+                      ->orderBy('assigned_at', 'desc');
+            }
+        ]);
 
         $asset->depreciation = $this->calculateDepreciation($asset);
 
         return Inertia::render('assets/Show', [
-
             'asset' => $asset,
+            'can' => [
+                'edit_asset' => auth()->user()->can('edit assets'),
+                'delete_asset' => auth()->user()->can('delete assets'),
+                'assign_asset' => auth()->user()->can('assign assets'),
+            ]
         ]);
     }
 
@@ -143,6 +167,7 @@ class AssetController extends Controller
                 'statuses' => AssetStatus::all(['id', 'name']),
                 'categories' => Category::all(['id', 'name']),
                 'locations' => Location::all(['id', 'name']),
+                'suppliers' => Supplier::all(['id', 'name']),  // Add this
             ]
         ]);
     }
@@ -157,12 +182,15 @@ class AssetController extends Controller
             'category_id' => 'required|exists:categories,id',
             'status_id' => 'required|exists:asset_statuses,id',
             'location_id' => 'required|exists:locations,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',  // Add this
+            'brand' => 'nullable|string|max:255',  // Add this
+            'model' => 'nullable|string|max:255',  // Add this
+            'specifications' => 'nullable|string',  // Add this
             'serial_number' => 'nullable|string|max:255|unique:assets,serial_number',
             'purchase_date' => 'nullable|date',
             'purchase_cost' => 'nullable|numeric|min:0',
             'warranty_expiry' => 'nullable|date|after_or_equal:purchase_date',
             'description' => 'nullable|string',
-
         ]);
 
         $validateData['created_by'] = auth()->id();
@@ -258,18 +286,92 @@ class AssetController extends Controller
 
     public function assign(Request $request, Asset $asset)
     {
-
-        $validated = $request->validate([
+        $request->validate([
             'user_id' => 'required|exists:users,id',
+            'notes' => 'nullable|string',
+            'document' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:2048',
         ]);
 
         $deployedStatus = AssetStatus::where('name', 'Deployed')->firstOrFail();
 
+        // Handle document upload
+        $documentPath = null;
+        if ($request->hasFile('document')) {
+            $documentPath = $request->file('document')->store('assignment-documents', 'public');
+        }
+
+        // Create assignment record
+        AssetAssignment::create([
+            'asset_id' => $asset->id,
+            'user_id' => $request->user_id,
+            'assigned_by' => auth()->id(),
+            'assigned_at' => now(),
+            'notes' => $request->notes,
+            'document_path' => $documentPath,
+        ]);
+
+        // Log the checkout
+        CheckinCheckoutLog::create([
+            'asset_id' => $asset->id,
+            'user_id' => $request->user_id,
+            'action' => 'checkout',
+            'timestamp' => now(),
+        ]);
+
+        // Update asset - set deployed_at if first deployment
+        $updateData = [
+            'assigned_to' => $request->user_id,
+            'status_id' => $deployedStatus->id,
+        ];
+        
+        // Set deployed_at only if it's null (first deployment)
+        if (!$asset->deployed_at) {
+            $updateData['deployed_at'] = now();
+        }
+        
+        $asset->update($updateData);
+
+        return back()->with('success', 'Asset assigned successfully!');
+    }
+
+    public function reassign(Request $request, Asset $asset)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'notes' => 'nullable|string',
+            'document' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:5120',
+        ]);
+
+        $deployedStatus = AssetStatus::where('name', 'Deployed')->firstOrFail();
+        
+        // Close previous assignment if exists
+        AssetAssignment::where('asset_id', $asset->id)
+            ->whereNull('returned_at')
+            ->update(['returned_at' => now()]);
+
+        // Handle document upload
+        $documentPath = null;
+        if ($request->hasFile('document')) {
+            $documentPath = $request->file('document')->store('asset-assignments', 'public');
+        }
+
+        // Create new assignment record
+        AssetAssignment::create([
+            'asset_id' => $asset->id,
+            'user_id' => $validated['user_id'],
+            'assigned_by' => auth()->id(),
+            'assigned_at' => now(),
+            'notes' => $validated['notes'] ?? null,
+            'document_path' => $documentPath,
+        ]);
+
+        // Update asset assignment
         $asset->update([
             'assigned_to' => $validated['user_id'],
             'status_id' => $deployedStatus->id,
         ]);
 
+        // Log the checkout
         CheckinCheckoutLog::create([
             'asset_id' => $asset->id,
             'user_id' => $validated['user_id'],
@@ -277,7 +379,7 @@ class AssetController extends Controller
             'timestamp' => now(),
         ]);
 
-        return back()->with('success', 'Asset assigned successfully!');
+        return back()->with('success', 'Asset reassigned successfully!');
     }
 
     public function barcode(Asset $asset)
@@ -323,5 +425,53 @@ class AssetController extends Controller
         return Inertia::render('assets/PrintLabel', [
             'asset' => $asset,
         ]);
+    }
+
+    public function getAssignments(Asset $asset)
+    {
+        $assignments = $asset->assignments()
+            ->with(['user.department', 'assignedBy'])
+            ->orderBy('assigned_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'asset' => [
+                'id' => $asset->id,
+                'name' => $asset->name,
+                'asset_tag' => $asset->asset_tag,
+                'assignments' => $assignments,
+            ]
+        ]);
+    }
+
+    public function unassign(Asset $asset)
+    {
+        // Check if asset is assigned
+        if (!$asset->assigned_to) {
+            return back()->with('error', 'Asset is not assigned to anyone.');
+        }
+
+        $inStockStatus = AssetStatus::where('name', 'In Stock')->firstOrFail();
+        
+        // Close current assignment
+        AssetAssignment::where('asset_id', $asset->id)
+            ->whereNull('returned_at')
+            ->update(['returned_at' => now()]);
+
+        // Log the checkin
+        CheckinCheckoutLog::create([
+            'asset_id' => $asset->id,
+            'user_id' => $asset->assigned_to,
+            'action' => 'checkin',
+            'timestamp' => now(),
+        ]);
+
+        // Update asset - remove assignment and set to In Stock
+        $asset->update([
+            'assigned_to' => null,
+            'status_id' => $inStockStatus->id,
+        ]);
+
+        return back()->with('success', 'Asset unassigned successfully and status set to In Stock!');
     }
 }

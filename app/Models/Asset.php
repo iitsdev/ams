@@ -6,121 +6,108 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Carbon\Carbon;
 
 class Asset extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
         'name',
         'asset_tag',
-        'description',
         'serial_number',
+        'model',
+        'brand',
         'category_id',
-        'location_id',
         'status_id',
-        'purchase_date',
-        'purchase_cost',
-        'warranty_expiry',
+        'location_id',
         'assigned_to',
-        'created_by',
+        'purchase_date',
+        'deployed_at',
+        'purchase_cost',
+        'supplier_id',
+        'warranty_expiry',
+        'notes',
+        'specifications',
+        'image',
     ];
-
-
-    /**
-     * The relationships that should always be loaded.
-     *
-     * @var array
-     */
-    protected $with = ['category'];
-
-
-    /**
-     * The attributes that should be cast to native types.
-     *
-     * @var array
-     */
 
     protected $casts = [
         'purchase_date' => 'date',
+        'deployed_at' => 'date',
         'warranty_expiry' => 'date',
-        'purchase_cost' => 'float',
+        'purchase_cost' => 'decimal:2',
     ];
 
+    protected $appends = ['years_since_purchase'];
 
+    // Calculate years since purchase
+    public function getYearsSincePurchaseAttribute()
+    {
+        if (!$this->purchase_date) {
+            return null;
+        }
 
-    /**
-     * Get the category that owns the asset.
-     */
+        $purchaseDate = Carbon::parse($this->purchase_date);
+        $now = now();
+        
+        // Calculate total months difference
+        $totalMonths = $purchaseDate->diffInMonths($now);
+        
+        // Calculate years and remaining months
+        $years = floor($totalMonths / 12);
+        $months = $totalMonths % 12;
+        
+        // Format output
+        if ($years === 0 && $months === 0) {
+            return 'New';
+        } elseif ($years === 0) {
+            return $months . 'm';
+        } elseif ($months === 0) {
+            return $years . 'y';
+        } else {
+            return $years . 'y ' . $months . 'm';
+        }
+    }
 
+    // Relationships
     public function category(): BelongsTo
     {
-
         return $this->belongsTo(Category::class);
     }
 
-    /**
-     * Get the location of the asset.
-     */
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(AssetStatus::class, 'status_id');
+    }
 
     public function location(): BelongsTo
     {
-
         return $this->belongsTo(Location::class);
     }
 
-    /**
-     * Get the status of the asset.
-     */
-
-    public function status(): BelongsTo
-    {
-
-        return $this->belongsTo(AssetStatus::class);
-    }
-
-    /**
-     * Get the user who assigned the asset to.
-     */
-
     public function assignedToUser(): BelongsTo
     {
-
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
-    /**
-     * Get the user who created the asset.
-     */
-
-    public function createdBy(): BelongsTo
+    public function supplier(): BelongsTo
     {
-
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(Supplier::class);
     }
 
-    /**
-     * Get the maintenace logs history for the asset.
-     */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(AssetAssignment::class);
+    }
 
     public function maintenanceLogs(): HasMany
     {
-
         return $this->hasMany(MaintenanceLog::class);
     }
 
-    /**
-     * Get the checkin/checkout logs history for the asset.
-     */
-
     public function checkinCheckoutLogs(): HasMany
     {
-
         return $this->hasMany(CheckinCheckoutLog::class);
     }
-
-
 }

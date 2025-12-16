@@ -11,6 +11,7 @@ use App\Models\Location;
 use App\Models\CheckinCheckoutLog;
 use App\Models\AssetAssignment;
 use App\Models\Supplier;
+use App\Models\Brand;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 use Inertia\Inertia;
@@ -161,13 +162,13 @@ class AssetController extends Controller
 
     public function create()
     {
-
         return Inertia::render('assets/Create', [
             'dropdowns' => [
                 'statuses' => AssetStatus::all(['id', 'name']),
                 'categories' => Category::all(['id', 'name']),
                 'locations' => Location::all(['id', 'name']),
-                'suppliers' => Supplier::all(['id', 'name']),  // Add this
+                'brands' => Brand::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+                'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             ]
         ]);
     }
@@ -182,15 +183,16 @@ class AssetController extends Controller
             'category_id' => 'required|exists:categories,id',
             'status_id' => 'required|exists:asset_statuses,id',
             'location_id' => 'required|exists:locations,id',
-            'supplier_id' => 'nullable|exists:suppliers,id',  // Add this
-            'brand' => 'nullable|string|max:255',  // Add this
-            'model' => 'nullable|string|max:255',  // Add this
-            'specifications' => 'nullable|string',  // Add this
+            'brand_id' => 'nullable|exists:brands,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'model' => 'nullable|string|max:255',
+            'specifications' => 'nullable|string',
             'serial_number' => 'nullable|string|max:255|unique:assets,serial_number',
             'purchase_date' => 'nullable|date',
+            'deployed_at' => 'nullable|date',
             'purchase_cost' => 'nullable|numeric|min:0',
             'warranty_expiry' => 'nullable|date|after_or_equal:purchase_date',
-            'description' => 'nullable|string',
+            'notes' => 'nullable|string',
         ]);
 
         $validateData['created_by'] = auth()->id();
@@ -209,6 +211,8 @@ class AssetController extends Controller
                 'statuses' => AssetStatus::all(['id', 'name']),
                 'categories' => Category::all(['id', 'name']),
                 'locations' => Location::all(['id', 'name']),
+                'brands' => Brand::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+                'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             ],
         ]);
     }
@@ -221,11 +225,16 @@ class AssetController extends Controller
             'category_id' => 'required|exists:categories,id',
             'status_id' => 'required|exists:asset_statuses,id',
             'location_id' => 'required|exists:locations,id',
+            'brand_id' => 'nullable|exists:brands,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'model' => 'nullable|string|max:255',
+            'specifications' => 'nullable|string',
             'serial_number' => ['nullable', 'string', 'max:255', Rule::unique('assets')->ignore($asset->id)],
             'purchase_date' => 'nullable|date',
+            'deployed_at' => 'nullable|date',
             'purchase_cost' => 'nullable|numeric|min:0',
             'warranty_expiry' => 'nullable|date|after_or_equal:purchase_date',
-            'description' => 'nullable|string',
+            'notes' => 'nullable|string',
         ]);
 
         $asset->update($validateData);

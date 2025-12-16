@@ -14,15 +14,15 @@ class SupplierController extends Controller
     public function index()
     {
         $suppliers = Supplier::withCount('assets')
-            ->latest()
-            ->paginate(10);
+            ->orderBy('name')
+            ->paginate(15);
 
         return Inertia::render('settings/suppliers/Index', [
             'suppliers' => $suppliers,
             'can' => [
-                'create_supplier' => auth()->user()->can('create suppliers'),
-                'edit_supplier' => auth()->user()->can('edit suppliers'),
-                'delete_supplier' => auth()->user()->can('delete suppliers'),
+                'create_supplier' => true,
+                'edit_supplier' => true,
+                'delete_supplier' => true,
             ]
         ]);
     }
@@ -41,18 +41,19 @@ class SupplierController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:suppliers,name',
             'contact_person' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
             'website' => 'nullable|url|max:255',
+            'notes' => 'nullable|string',
+            'is_active' => 'boolean',
         ]);
 
         Supplier::create($validated);
 
-        return redirect()->route('suppliers.index')
-            ->with('success', 'Supplier created successfully!');
+        return to_route('suppliers.index')->with('success', 'Supplier created successfully!');
     }
 
     /**
@@ -79,18 +80,19 @@ class SupplierController extends Controller
     public function update(Request $request, Supplier $supplier)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:suppliers,name,' . $supplier->id,
             'contact_person' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
             'website' => 'nullable|url|max:255',
+            'notes' => 'nullable|string',
+            'is_active' => 'boolean',
         ]);
 
         $supplier->update($validated);
 
-        return redirect()->route('suppliers.index')
-            ->with('success', 'Supplier updated successfully!');
+        return to_route('suppliers.index')->with('success', 'Supplier updated successfully!');
     }
 
     /**
@@ -98,13 +100,13 @@ class SupplierController extends Controller
      */
     public function destroy(Supplier $supplier)
     {
+        // Check if supplier has assets
         if ($supplier->assets()->count() > 0) {
             return back()->with('error', 'Cannot delete supplier with associated assets.');
         }
 
         $supplier->delete();
 
-        return redirect()->route('suppliers.index')
-            ->with('success', 'Supplier deleted successfully!');
+        return to_route('suppliers.index')->with('success', 'Supplier deleted successfully!');
     }
 }

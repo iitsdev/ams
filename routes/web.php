@@ -10,6 +10,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\MaintenanceLogController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\BrandController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
@@ -49,6 +50,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/suppliers', SupplierController::class)->except(['show']);
     // Department routes
     Route::resource('settings/departments', DepartmentController::class)->except(['show']);
+    // Brand routes
+    Route::resource('settings/brands', BrandController::class)->except(['show']);
 
     //Maintenance Route
     Route::post('/assets/{asset}/maintenance-logs', [MaintenanceLogController::class, 'store'])->name('assets.maintenance_logs.store');

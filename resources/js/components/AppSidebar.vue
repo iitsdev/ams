@@ -5,7 +5,18 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { LayoutGrid, Building2, Settings, MapPin, Tag, ListCheck, User2 } from 'lucide-vue-next';
+import {
+    LayoutGrid,
+    Building2,
+    Settings,
+    MapPin,
+    Tag,
+    ListCheck,
+    User2,
+    Package,
+    Truck,
+    Building
+} from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 const mainNavItems: NavItem[] = [
@@ -39,6 +50,21 @@ const mainNavItems: NavItem[] = [
                 icon: ListCheck,
             },
             {
+                title: 'Brands',
+                href: route('brands.index'),
+                icon: Package,
+            },
+            {
+                title: 'Suppliers',
+                href: route('suppliers.index'),
+                icon: Truck,
+            },
+            {
+                title: 'Departments',
+                href: route('departments.index'),
+                icon: Building,
+            },
+            {
                 title: 'Users',
                 href: route('users.index'),
                 icon: User2,
@@ -68,7 +94,7 @@ const footerNavItems: NavItem[] = [
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
                         <Link :href="route('dashboard')">
-                        <AppLogo />
+                            <AppLogo />
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>

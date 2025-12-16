@@ -6,18 +6,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Supplier extends Model
+class Brand extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'name',
-        'contact_person',
-        'email',
-        'phone',
-        'address',
         'website',
-        'notes',
+        'description',
         'is_active',
     ];
 

@@ -16,8 +16,9 @@ class Asset extends Model
         'name',
         'asset_tag',
         'serial_number',
+        'brand_id',
         'model',
-        'brand',
+        'specifications',
         'category_id',
         'status_id',
         'location_id',
@@ -28,8 +29,8 @@ class Asset extends Model
         'supplier_id',
         'warranty_expiry',
         'notes',
-        'specifications',
         'image',
+        'created_by'
     ];
 
     protected $casts = [
@@ -89,6 +90,11 @@ class Asset extends Model
     public function assignedToUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
     public function supplier(): BelongsTo

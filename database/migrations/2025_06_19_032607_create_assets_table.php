@@ -16,28 +16,24 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('asset_tag')->unique();
-            $table->string('serial_number')->nullable();
-            $table->text('description')->nullable();
-
-            $table->foreignId('category_id')->nullable()->constrained('categories')->onDelete('set null');
-            $table->foreignId('location_id')->nullable()->constrained('locations')->onDelete('set null');
-            $table->foreignId('status_id')->nullable()->constrained('asset_statuses')->onDelete('set null');
-
+            $table->string('serial_number')->nullable()->unique();
+            $table->foreignId('brand_id')->nullable()->constrained('brands')->nullOnDelete();
+            $table->string('model')->nullable();
+            $table->string('description')->nullable();
+            $table->text('specifications')->nullable();
+            $table->foreignId('category_id')->constrained('categories')->nullOnDelete();
+            $table->foreignId('status_id')->constrained('asset_statuses')->nullOnDelete();
+            $table->foreignId('location_id')->constrained('locations')->nullOnDelete();
+            $table->foreignId('assigned_to')->nullable()->constrained('users');
             $table->date('purchase_date')->nullable();
             $table->date('deployed_at')->nullable();
             $table->decimal('purchase_cost', 10, 2)->nullable();
+            $table->foreignId('supplier_id')->nullable()->constrained('suppliers')->nullOnDelete();
             $table->date('warranty_expiry')->nullable();
-
-            $table->foreignId('assigned_to')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('created_by')->constrained('users');
-
-            $table->string('brand')->nullable()->after('description');
-            $table->string('model')->nullable()->after('brand');
-            $table->text('specifications')->nullable()->after('model');
-            $table->foreignId('supplier_id')->nullable()->after('location_id')->constrained('suppliers')->onDelete('set null');
-
+            $table->text('notes')->nullable();
+            $table->string('image')->nullable();
+            $table->foreignId('created_by')->nullable()->constrained('users');
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

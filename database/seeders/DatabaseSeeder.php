@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             AssetStatusSeeder::class,
             CategorySeeder::class,
             LocationSeeder::class,
+            BrandSeeder::class,
 
         ]);
 

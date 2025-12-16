@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// filepath: c:\Users\daveg\Desktop\Projects\ams\resources\js\pages\assets\Edit.vue
+
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Button } from '@/components/ui/button'
@@ -33,28 +35,26 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const form = useForm({
     name: props.asset?.name || '',
-    asset_tag: props.asset?.asset_tag || '',
-    serial_number: props.asset?.serial_number || '',
-    model: props.asset?.model || '',
     brand: props.asset?.brand || '',
+    model: props.asset?.model || '',
+    serial_number: props.asset?.serial_number || '',
     category_id: props.asset?.category_id || '',
     status_id: props.asset?.status_id || '',
     location_id: props.asset?.location_id || '',
+    supplier_id: props.asset?.supplier_id || '',
     purchase_date: props.asset?.purchase_date || '',
     deployed_at: props.asset?.deployed_at || '',
     purchase_cost: props.asset?.purchase_cost || '',
-    supplier_id: props.asset?.supplier_id || '',
     warranty_expiry: props.asset?.warranty_expiry || '',
     notes: props.asset?.notes || '',
     specifications: props.asset?.specifications || '',
-    image: null,
 })
 
 const submit = () => {
     form.put(route('assets.update', props.asset?.id))
 }
-
 </script>
+
 <template>
 
     <Head :title="`Edit Asset - ${form.name}`" />
@@ -67,24 +67,46 @@ const submit = () => {
             </div>
         </template>
 
-        <form @submit.prevent="submit" class="mt-2">
+        <form @submit.prevent="submit" class="mt-2 px-4">
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <!-- Left Column - Main Details -->
                 <div class="grid auto-rows-max items-start gap-4 lg:col-span-2">
+                    <!-- Basic Information -->
                     <Card>
                         <CardHeader>
-                            <CardTitle>Asset Details</CardTitle>
+                            <CardTitle>Basic Information</CardTitle>
                             <CardDescription>
-                                Update the details of the asset.
+                                Update the main details of the asset.
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-4">
                             <div class="grid gap-3">
-                                <Label for="name">Name</Label>
+                                <Label for="name">Asset Name <span class="text-red-500">*</span></Label>
                                 <Input id="name" v-model="form.name" type="text" />
                                 <div v-if="form.errors.name" class="text-sm text-red-600">
                                     {{ form.errors.name }}
                                 </div>
                             </div>
+
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="grid gap-3">
+                                    <Label for="brand">Brand</Label>
+                                    <Input id="brand" v-model="form.brand" type="text"
+                                        placeholder="e.g., Apple, Dell, HP" />
+                                    <div v-if="form.errors.brand" class="text-sm text-red-600">
+                                        {{ form.errors.brand }}
+                                    </div>
+                                </div>
+                                <div class="grid gap-3">
+                                    <Label for="model">Model</Label>
+                                    <Input id="model" v-model="form.model" type="text"
+                                        placeholder="e.g., MacBook Pro 14-inch" />
+                                    <div v-if="form.errors.model" class="text-sm text-red-600">
+                                        {{ form.errors.model }}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="grid gap-3">
                                 <Label for="serial_number">Serial Number</Label>
                                 <Input id="serial_number" v-model="form.serial_number" type="text" />
@@ -92,33 +114,52 @@ const submit = () => {
                                     {{ form.errors.serial_number }}
                                 </div>
                             </div>
+
                             <div class="grid gap-3">
-                                <Label for="description">Description</Label>
-                                <Textarea id="description" v-model="form.description" />
-                                <div v-if="form.errors.description" class="text-sm text-red-600">
-                                    {{ form.errors.description }}
+                                <Label for="specifications">Specifications</Label>
+                                <Textarea id="specifications" v-model="form.specifications"
+                                    placeholder="e.g., M3 chip, 16GB RAM, 512GB SSD, 14-inch Liquid Retina XDR display"
+                                    rows="3" />
+                                <div v-if="form.errors.specifications" class="text-sm text-red-600">
+                                    {{ form.errors.specifications }}
+                                </div>
+                            </div>
+
+                            <div class="grid gap-3">
+                                <Label for="notes">Notes</Label>
+                                <Textarea id="notes" v-model="form.notes"
+                                    placeholder="Additional notes or comments about this asset..." rows="3" />
+                                <div v-if="form.errors.notes" class="text-sm text-red-600">
+                                    {{ form.errors.notes }}
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
+                    <!-- Purchase Information -->
                     <Card>
                         <CardHeader>
                             <CardTitle>Purchase Information</CardTitle>
+                            <CardDescription>
+                                Update purchase and warranty details.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-3">
-                                <Label for="purchase_date">Purchase Date</Label>
-                                <Input id="purchase_date" v-model="form.purchase_date" type="date" />
-                                <div v-if="form.errors.purchase_date" class="text-sm text-red-600">
-                                    {{ form.errors.purchase_date }}
-                                </div>
-                            </div>
-                            <div class="grid gap-3">
-                                <Label for="deployed_at">Deployment Date</Label>
-                                <Input id="deployed_at" v-model="form.deployed_at" type="date" />
-                                <div v-if="form.errors.deployed_at" class="text-sm text-red-600">
-                                    {{ form.errors.deployed_at }}
+                                <Label for="supplier_id">Supplier</Label>
+                                <Select v-model="form.supplier_id">
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a supplier" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="item in dropdowns?.suppliers" :key="item.id"
+                                            :value="item.id">
+                                            {{ item.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <div v-if="form.errors.supplier_id" class="text-sm text-red-600">
+                                    {{ form.errors.supplier_id }}
                                 </div>
                             </div>
                             <div class="grid gap-3">
@@ -126,6 +167,13 @@ const submit = () => {
                                 <Input id="purchase_cost" v-model="form.purchase_cost" type="number" step="0.01" />
                                 <div v-if="form.errors.purchase_cost" class="text-sm text-red-600">
                                     {{ form.errors.purchase_cost }}
+                                </div>
+                            </div>
+                            <div class="grid gap-3">
+                                <Label for="purchase_date">Purchase Date</Label>
+                                <Input id="purchase_date" v-model="form.purchase_date" type="date" />
+                                <div v-if="form.errors.purchase_date" class="text-sm text-red-600">
+                                    {{ form.errors.purchase_date }}
                                 </div>
                             </div>
                             <div class="grid gap-3">
@@ -139,14 +187,18 @@ const submit = () => {
                     </Card>
                 </div>
 
+                <!-- Right Column - Organization & Actions -->
                 <div class="grid auto-rows-max items-start gap-4">
                     <Card>
                         <CardHeader>
                             <CardTitle>Organization</CardTitle>
+                            <CardDescription>
+                                Update category, status, and location.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-4">
                             <div class="grid gap-3">
-                                <Label for="category">Category</Label>
+                                <Label for="category">Category <span class="text-red-500">*</span></Label>
                                 <Select v-model="form.category_id">
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a category" />
@@ -163,7 +215,7 @@ const submit = () => {
                                 </div>
                             </div>
                             <div class="grid gap-3">
-                                <Label for="status">Status</Label>
+                                <Label for="status">Status <span class="text-red-500">*</span></Label>
                                 <Select v-model="form.status_id">
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a status" />
@@ -179,7 +231,7 @@ const submit = () => {
                                 </div>
                             </div>
                             <div class="grid gap-3">
-                                <Label for="location">Location</Label>
+                                <Label for="location">Location <span class="text-red-500">*</span></Label>
                                 <Select v-model="form.location_id">
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a location" />
@@ -197,17 +249,24 @@ const submit = () => {
                             </div>
                         </CardContent>
                     </Card>
-                    <div class="flex items-center justify-end gap-2">
-                        <Link :href="route('assets.index')">
-                        <Button variant="outline">Cancel</Button>
-                        </Link>
-                        <Button type="submit" :disabled="form.processing">
-                            Save Changes
-                        </Button>
-                    </div>
+
+                    <!-- Action Buttons -->
+                    <Card>
+                        <CardContent class="pt-6">
+                            <div class="flex flex-col gap-2">
+                                <Button type="submit" :disabled="form.processing" class="w-full">
+                                    Save Changes
+                                </Button>
+                                <Link :href="route('assets.index')" class="w-full">
+                                    <Button variant="outline" type="button" class="w-full">
+                                        Cancel
+                                    </Button>
+                                </Link>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </form>
-
     </AppLayout>
 </template>

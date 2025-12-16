@@ -22,8 +22,8 @@ return new class extends Migration
             $table->string('description')->nullable();
             $table->text('specifications')->nullable();
             $table->foreignId('category_id')->nullable()->constrained('categories')->nullOnDelete();
-            $table->foreignId('status_id')->constrained('asset_statuses')->nullOnDelete();
-            $table->foreignId('location_id')->constrained('locations')->nullOnDelete();
+            $table->foreignId('status_id')->nullable()->constrained('asset_statuses')->nullOnDelete();
+            $table->foreignId('location_id')->nullable()->constrained('locations')->nullOnDelete();
             $table->foreignId('assigned_to')->nullable()->constrained('users')->nullOnDelete();
             $table->date('purchase_date')->nullable();
             $table->date('deployed_at')->nullable();

@@ -4,15 +4,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Asset;
-use App\Models\AssetStatus;
+use App\Models\AssetAssignment;
+use App\Models\User;
 use App\Models\Category;
 use App\Models\Location;
-use App\Models\User;
-use App\Models\AssetAssignment;
-use App\Models\MaintenanceLog;
+use App\Models\AssetStatus;
+use App\Models\MaintenanceLog;  // Add this import
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -51,7 +51,7 @@ class DashboardController extends Controller
 
         // Overview Statistics
         $totalAssets = Asset::count();
-        $totalValue = Asset::sum('purchase_cost');
+        $totalValue = Asset::sum('purchase_cost') ?? 0;
         $assignedAssets = Asset::whereNotNull('assigned_to')->count();
         $availableAssets = Asset::whereHas('status', function ($query) {
             $query->whereIn(DB::raw('LOWER(name)'), ['in stock', 'available', 'in store']);
@@ -106,17 +106,17 @@ class DashboardController extends Controller
                 ];
             });
 
-        // Recent Assignments - Filter out null assets
-        $recentAssignments = AssetAssignment::with(['asset', 'user', 'assignedBy'])
+        // Recent Assignments - Fixed to use assignedByUser instead of assignedBy
+        $recentAssignments = AssetAssignment::with(['asset', 'user', 'assignedByUser'])  // Changed from assignedBy
             ->whereNull('returned_at')
             ->whereHas('asset')
             ->whereHas('user')
-            ->whereHas('assignedBy')
+            ->whereHas('assignedByUser')  // Changed from assignedBy
             ->latest('assigned_at')
             ->take(5)
             ->get()
             ->filter(function ($assignment) {
-                return $assignment->asset && $assignment->user && $assignment->assignedBy;
+                return $assignment->asset && $assignment->user && $assignment->assignedByUser;  // Changed from assignedBy
             })
             ->map(function ($assignment) {
                 return [
@@ -126,7 +126,7 @@ class DashboardController extends Controller
                     'asset_id' => $assignment->asset->id,
                     'user_name' => $assignment->user->name,
                     'user_id' => $assignment->user->id,
-                    'assigned_by' => $assignment->assignedBy->name,
+                    'assigned_by' => $assignment->assignedByUser->name,  // Changed from assignedBy
                     'assigned_at' => $assignment->assigned_at->format('M d, Y'),
                     'duration_days' => $assignment->assigned_at->diffInDays(now())
                 ];
@@ -213,7 +213,7 @@ class DashboardController extends Controller
 
         // Current Depreciation Summary
         $totalCurrentValue = 0;
-        $totalOriginalValue = Asset::whereNotNull('purchase_cost')->sum('purchase_cost');
+        $totalOriginalValue = Asset::whereNotNull('purchase_cost')->sum('purchase_cost') ?? 0;
         
         Asset::whereNotNull('purchase_cost')
             ->whereNotNull('purchase_date')

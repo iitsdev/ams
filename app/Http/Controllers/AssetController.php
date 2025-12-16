@@ -15,6 +15,7 @@ use App\Models\AssetAssignment;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AssetController extends Controller
 {
@@ -92,27 +93,40 @@ class AssetController extends Controller
     public function show(Asset $asset)
     {
         $asset->load([
-            'category', 
-            'status', 
-            'location', 
+            'category',
+            'status',
+            'location',
+            'brand',
             'supplier',
-            'assignedToUser.department', 
-            'maintenanceLogs.performedByUser',
-            'assignments' => function ($query) {
-                $query->with(['user.department', 'assignedBy'])
-                      ->orderBy('assigned_at', 'desc');
-            }
+            'assignedToUser.department',
+            'assignments.user',              // Changed from assignedToUser
+            'assignments.assignedByUser',
+            'assignments.returnedByUser',
+            'maintenanceLogs.performedByUser'
         ]);
 
-        $asset->depreciation = $this->calculateDepreciation($asset);
+        // Calculate depreciation
+        if ($asset->purchase_cost && $asset->purchase_date) {
+            $purchaseDate = Carbon::parse($asset->purchase_date);
+            $monthsSincePurchase = $purchaseDate->diffInMonths(now());
+            $usefulLifeMonths = 60; // 5 years
+            
+            $monthlyDepreciation = $asset->purchase_cost / $usefulLifeMonths;
+            $accumulatedDepreciation = min(
+                $monthlyDepreciation * $monthsSincePurchase,
+                $asset->purchase_cost
+            );
+            $currentValue = max(0, $asset->purchase_cost - $accumulatedDepreciation);
+
+            $asset->depreciation = [
+                'monthly_depreciation' => number_format($monthlyDepreciation, 2),
+                'accumulated_depreciation' => number_format($accumulatedDepreciation, 2),
+                'current_value' => number_format($currentValue, 2),
+            ];
+        }
 
         return Inertia::render('assets/Show', [
             'asset' => $asset,
-            'can' => [
-                'edit_asset' => auth()->user()->can('edit assets'),
-                'delete_asset' => auth()->user()->can('delete assets'),
-                'assign_asset' => auth()->user()->can('assign assets'),
-            ]
         ]);
     }
 

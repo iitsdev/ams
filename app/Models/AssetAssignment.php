@@ -12,12 +12,12 @@ class AssetAssignment extends Model
 
     protected $fillable = [
         'asset_id',
-        'user_id',
+        'user_id',  // Changed from assigned_to
         'assigned_by',
         'assigned_at',
         'returned_at',
+        'returned_by',
         'notes',
-        'document_path',
     ];
 
     protected $casts = [
@@ -25,35 +25,24 @@ class AssetAssignment extends Model
         'returned_at' => 'datetime',
     ];
 
-    protected $appends = ['duration_days', 'is_current'];
-
+    // Relationships
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
     }
 
-    public function user(): BelongsTo
+    public function user(): BelongsTo  // Changed from assignedToUser
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function assignedBy(): BelongsTo
+    public function assignedByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');
     }
 
-    public function getDurationDaysAttribute(): ?int
+    public function returnedByUser(): BelongsTo
     {
-        if (!$this->assigned_at) {
-            return null;
-        }
-
-        $endDate = $this->returned_at ?? now();
-        return $this->assigned_at->diffInDays($endDate);
-    }
-
-    public function getIsCurrentAttribute(): bool
-    {
-        return is_null($this->returned_at);
+        return $this->belongsTo(User::class, 'returned_by');
     }
 }

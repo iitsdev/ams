@@ -13,12 +13,12 @@ return new class extends Migration
     {
         Schema::create('asset_assignments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('asset_id')->constrained('assets')->onDelete('cascade');
-            $table->foreignId('assigned_to')->constrained('users')->onDelete('cascade');
-            $table->foreignId('assigned_by')->constrained('users')->onDelete('cascade');
+            $table->foreignId('asset_id')->constrained('assets')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete(); // Changed from assigned_to
+            $table->foreignId('assigned_by')->constrained('users')->cascadeOnDelete();
             $table->timestamp('assigned_at');
             $table->timestamp('returned_at')->nullable();
-            $table->foreignId('returned_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('returned_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('notes')->nullable();
             $table->timestamps();
         });

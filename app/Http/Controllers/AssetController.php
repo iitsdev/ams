@@ -8,19 +8,13 @@ use App\Models\User;
 use App\Models\AssetStatus;
 use App\Models\Category;
 use App\Models\Location;
+use App\Models\Brand;
+use App\Models\Supplier;
 use App\Models\CheckinCheckoutLog;
 use App\Models\AssetAssignment;
-use App\Models\Supplier;
-use App\Models\Brand;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\File;
 use Inertia\Inertia;
-use Illuminate\Database\Eloquent\Builder;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-use Picqer\Barcode\BarcodeGeneratorPNG;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\AssetsExport;
-use App\Imports\AssetsImport;
+use Carbon\Carbon;
 
 class AssetController extends Controller
 {
@@ -295,50 +289,29 @@ class AssetController extends Controller
 
     public function assign(Request $request, Asset $asset)
     {
-        $request->validate([
+        $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'notes' => 'nullable|string',
-            'document' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:2048',
         ]);
 
-        $deployedStatus = AssetStatus::where('name', 'Deployed')->firstOrFail();
-
-        // Handle document upload
-        $documentPath = null;
-        if ($request->hasFile('document')) {
-            $documentPath = $request->file('document')->store('assignment-documents', 'public');
-        }
+        // Get "In Use" status
+        $inUseStatus = AssetStatus::where('name', 'In Use')->first();
+        
+        // Update asset
+        $asset->update([
+            'assigned_to' => $validated['user_id'],
+            'status_id' => $inUseStatus->id,
+            'deployed_at' => $asset->deployed_at ?? now(),
+        ]);
 
         // Create assignment record
         AssetAssignment::create([
             'asset_id' => $asset->id,
-            'user_id' => $request->user_id,
+            'user_id' => $validated['user_id'],  // Changed from assigned_to
             'assigned_by' => auth()->id(),
             'assigned_at' => now(),
-            'notes' => $request->notes,
-            'document_path' => $documentPath,
+            'notes' => $validated['notes'] ?? null,
         ]);
-
-        // Log the checkout
-        CheckinCheckoutLog::create([
-            'asset_id' => $asset->id,
-            'user_id' => $request->user_id,
-            'action' => 'checkout',
-            'timestamp' => now(),
-        ]);
-
-        // Update asset - set deployed_at if first deployment
-        $updateData = [
-            'assigned_to' => $request->user_id,
-            'status_id' => $deployedStatus->id,
-        ];
-        
-        // Set deployed_at only if it's null (first deployment)
-        if (!$asset->deployed_at) {
-            $updateData['deployed_at'] = now();
-        }
-        
-        $asset->update($updateData);
 
         return back()->with('success', 'Asset assigned successfully!');
     }
@@ -348,44 +321,32 @@ class AssetController extends Controller
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'notes' => 'nullable|string',
-            'document' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:5120',
         ]);
 
-        $deployedStatus = AssetStatus::where('name', 'Deployed')->firstOrFail();
-        
-        // Close previous assignment if exists
-        AssetAssignment::where('asset_id', $asset->id)
+        // Return current assignment
+        $currentAssignment = AssetAssignment::where('asset_id', $asset->id)
             ->whereNull('returned_at')
-            ->update(['returned_at' => now()]);
+            ->first();
 
-        // Handle document upload
-        $documentPath = null;
-        if ($request->hasFile('document')) {
-            $documentPath = $request->file('document')->store('asset-assignments', 'public');
+        if ($currentAssignment) {
+            $currentAssignment->update([
+                'returned_at' => now(),
+                'returned_by' => auth()->id(),
+            ]);
         }
 
-        // Create new assignment record
+        // Create new assignment
         AssetAssignment::create([
             'asset_id' => $asset->id,
-            'user_id' => $validated['user_id'],
+            'user_id' => $validated['user_id'],  // Changed from assigned_to
             'assigned_by' => auth()->id(),
             'assigned_at' => now(),
             'notes' => $validated['notes'] ?? null,
-            'document_path' => $documentPath,
         ]);
 
-        // Update asset assignment
+        // Update asset
         $asset->update([
             'assigned_to' => $validated['user_id'],
-            'status_id' => $deployedStatus->id,
-        ]);
-
-        // Log the checkout
-        CheckinCheckoutLog::create([
-            'asset_id' => $asset->id,
-            'user_id' => $validated['user_id'],
-            'action' => 'checkout',
-            'timestamp' => now(),
         ]);
 
         return back()->with('success', 'Asset reassigned successfully!');

@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::create('maintenance_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('asset_id')->constrained('assets')->onDelete('cascade');
+            $table->date('maintenance_date');
             $table->string('maintenance_type'); // e.g., "Routine Check", "Repair", "Upgrade"
-            $table->text('description');
+            $table->text('description')->nullable();
             $table->decimal('cost', 10, 2)->nullable(); // Cost of the maintenance
-            $table->foreignId('performed_by')->constrained('users')->onDelete('set null'); // User who performed the maintenance
-            $table->dateTime('performed_at'); // Date and time when the maintenance was performed
+            $table->foreignId('performed_by')->nullable()->constrained('users')->onDelete('set null'); // User who performed the maintenance
             $table->timestamps();
         });
     }

@@ -14,12 +14,12 @@ return new class extends Migration
         Schema::create('asset_assignments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('asset_id')->constrained('assets')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('assigned_by')->constrained('users');
-            $table->dateTime('assigned_at');
-            $table->dateTime('returned_at')->nullable();
+            $table->foreignId('assigned_to')->constrained('users')->onDelete('cascade');
+            $table->foreignId('assigned_by')->constrained('users')->onDelete('cascade');
+            $table->timestamp('assigned_at');
+            $table->timestamp('returned_at')->nullable();
+            $table->foreignId('returned_by')->nullable()->constrained('users')->onDelete('set null');
             $table->text('notes')->nullable();
-            $table->string('document_path')->nullable();
             $table->timestamps();
         });
     }

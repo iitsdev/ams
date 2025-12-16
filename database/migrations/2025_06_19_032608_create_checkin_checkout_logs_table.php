@@ -14,9 +14,10 @@ return new class extends Migration
         Schema::create('checkin_checkout_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('asset_id')->constrained('assets')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users'); // User performing the action or receiving the asset
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->enum('action', ['checkin', 'checkout']);
-            $table->dateTime('timestamp');
+            $table->text('notes')->nullable();
+            $table->timestamp('action_date');
             $table->timestamps();
         });
     }

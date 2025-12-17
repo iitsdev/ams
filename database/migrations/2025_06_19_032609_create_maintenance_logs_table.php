@@ -18,7 +18,8 @@ return new class extends Migration
             $table->string('maintenance_type'); // e.g., "Routine Check", "Repair", "Upgrade"
             $table->text('description')->nullable();
             $table->decimal('cost', 10, 2)->nullable(); // Cost of the maintenance
-            $table->foreignId('performed_by')->nullable()->constrained('users')->onDelete('set null'); // User who performed the maintenance
+            $table->foreignId('performed_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('performed_at')->nullable(); // Timestamp when the maintenance was performed
             $table->timestamps();
         });
     }

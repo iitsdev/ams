@@ -19,7 +19,9 @@ class MaintenanceLogController extends Controller
         ]);
 
         $validated['performed_by'] = auth()->id();
-
+        $validated['type'] = $validated['maintenance_type'];
+        unset($validated['maintenance_type']);
+        
         $asset->maintenanceLogs()->create($validated);
 
         return back()->with('success', 'Maintenace log added successfully.');

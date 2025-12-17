@@ -35,7 +35,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const form = useForm({
     name: props.asset?.name || '',
-    brand: props.asset?.brand || '',
+    brand_id: props.asset?.brand_id || '',
     model: props.asset?.model || '',
     serial_number: props.asset?.serial_number || '',
     category_id: props.asset?.category_id || '',
@@ -91,10 +91,19 @@ const submit = () => {
                             <div class="grid gap-3 sm:grid-cols-2">
                                 <div class="grid gap-3">
                                     <Label for="brand">Brand</Label>
-                                    <Input id="brand" v-model="form.brand" type="text"
-                                        placeholder="e.g., Apple, Dell, HP" />
-                                    <div v-if="form.errors.brand" class="text-sm text-red-600">
-                                        {{ form.errors.brand }}
+                                    <Select v-model="form.brand_id">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a brand" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="brand in dropdowns?.brands" :key="brand.id"
+                                                :value="brand.id.toString()">
+                                                {{ brand.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <div v-if="form.errors.brand_id" class="text-sm text-red-600">
+                                        {{ form.errors.brand_id }}
                                     </div>
                                 </div>
                                 <div class="grid gap-3">

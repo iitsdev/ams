@@ -123,6 +123,11 @@ const getWarrantyBadgeVariant = (daysRemaining: number) => {
     if (daysRemaining <= 30) return 'default'
     return 'secondary'
 }
+
+const formatDaysRemaining = (days: number) => {
+    const roundedDays = Math.floor(Math.abs(days))
+    return roundedDays
+}
 </script>
 
 <template>
@@ -145,7 +150,7 @@ const getWarrantyBadgeVariant = (daysRemaining: number) => {
             </div>
         </template>
 
-        <div class="space-y-6">
+        <div class="space-y-6 max-h-[calc(100vh-12rem)] overflow-y-auto pr-2">
             <!-- Stats Grid -->
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <!-- Total Assets -->
@@ -372,8 +377,9 @@ const getWarrantyBadgeVariant = (daysRemaining: number) => {
                                     <p class="text-xs text-muted-foreground mb-1">{{ asset.warranty_expiry }}</p>
                                     <Badge :variant="getWarrantyBadgeVariant(asset.days_remaining)">
                                         <AlertCircle class="h-3 w-3 mr-1" />
-                                        {{ Math.abs(asset.days_remaining) }} days {{ asset.days_remaining < 0
-                                            ? 'overdue' : 'left' }} </Badge>
+                                        {{ formatDaysRemaining(asset.days_remaining) }} days {{ asset.days_remaining < 0
+                                            ? 'overdue' : 'left' }}
+                                    </Badge>
                                 </div>
                             </Link>
                         </div>

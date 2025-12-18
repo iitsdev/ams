@@ -11,47 +11,34 @@ jobs:
     name: Build & Deploy Laravel + Vue
 
     steps:
-      # =========================
-      # 1️⃣ Checkout Repository
-      # =========================
+      # 1️⃣ Checkout
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # =========================
       # 2️⃣ Setup PHP
-      # =========================
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, pdo_mysql, bcmath
 
-      # =========================
-      # 3️⃣ Setup Node.js
-      # =========================
+      # 3️⃣ Setup Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # =========================
       # 4️⃣ Install Composer Dependencies
-      # =========================
       - name: Install Composer Dependencies
-        run: |
-          composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
 
-      # =========================
       # 5️⃣ Build Vue/Vite Assets
-      # =========================
       - name: Build Frontend Assets
         run: |
-          npm install
-          npm run build
+          npm ci
+          npm run build   # builds into public folder
 
-      # =========================
       # 6️⃣ Deploy to Hostinger
-      # =========================
       - name: Deploy to Subdomain
         uses: easingthemes/ssh-deploy@main
         with:
@@ -59,9 +46,9 @@ jobs:
           REMOTE_HOST: ${{ secrets.HOST }}
           REMOTE_USER: ${{ secrets.USERNAME }}
           REMOTE_PORT: ${{ secrets.PORT }}
-          SOURCE: '.'
+          SOURCE: '.' 
           TARGET: ${{ secrets.DEPLOY_PATH }}
-          EXCLUDE: '/node_modules, /vendor, /.git, .env, /public/storage, /storage, /bootstrap/cache'
+          EXCLUDE: 'node_modules, vendor, .git, .env, public/storage, storage, bootstrap/cache'
           SCRIPT_AFTER: |
             cd domains/iits.website/public_html/ams
 
@@ -94,8 +81,8 @@ jobs:
               php artisan migrate --force
             fi
 
-            # Optional: Run seeder
-            RUN_SEEDER=true   # change to false if you don't want to seed
+            # Optional seeder
+            RUN_SEEDER=true
             if [ "$RUN_SEEDER" = true ]; then
               echo "🌱 Running database seeders..."
               php artisan db:seed --force
@@ -110,11 +97,11 @@ jobs:
             echo "🔹 Adding .htaccess if it doesn't exist..."
             if [ ! -f ".htaccess" ]; then
               cat > .htaccess << 'EOF'
-            <IfModule mod_rewrite.c>
-            RewriteEngine On
-            RewriteRule ^(.*)$ public/$1 [L]
-            </IfModule>
-                EOF
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+EOF
             else
               echo "  - .htaccess already exists, skipping..."
             fi

@@ -11,34 +11,46 @@ jobs:
     name: Build & Deploy Laravel + Vue
 
     steps:
-      # 1️⃣ Checkout
+      # =========================
+      # 1️⃣ Checkout Repository
+      # =========================
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # =========================
       # 2️⃣ Setup PHP
+      # =========================
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, pdo_mysql, bcmath
 
-      # 3️⃣ Setup Node
+      # =========================
+      # 3️⃣ Setup Node.js
+      # =========================
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 4️⃣ Install Composer Dependencies
+      # =========================
+      # 4️⃣ Install Composer Dependencies (local build)
+      # =========================
       - name: Install Composer Dependencies
         run: composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
 
-      # 5️⃣ Build Vue/Vite Assets
+      # =========================
+      # 5️⃣ Build Vue/Vite Assets (local build)
+      # =========================
       - name: Build Frontend Assets
         run: |
           npm ci
-          npm run build   # builds into public folder
+          npm run build   # builds assets into public folder
 
-      # 6️⃣ Deploy to Hostinger
+      # =========================
+      # 6️⃣ Deploy to Hostinger via SSH
+      # =========================
       - name: Deploy to Subdomain
         uses: easingthemes/ssh-deploy@main
         with:
@@ -46,7 +58,7 @@ jobs:
           REMOTE_HOST: ${{ secrets.HOST }}
           REMOTE_USER: ${{ secrets.USERNAME }}
           REMOTE_PORT: ${{ secrets.PORT }}
-          SOURCE: '.'
+          SOURCE: '.' 
           TARGET: ${{ secrets.DEPLOY_PATH }}
           EXCLUDE: 'node_modules, vendor, .git, .env, public/storage, storage, bootstrap/cache'
           SCRIPT_AFTER: |
@@ -55,7 +67,7 @@ jobs:
             echo "🔹 Setting permissions for storage and bootstrap/cache..."
             chmod -R 775 storage bootstrap/cache
 
-            echo "🔹 Handling environment variables..."
+            echo "🔹 Handling environment variables and APP_KEY..."
             FIRST_DEPLOY=false
             if [ ! -f ".env" ]; then
               echo "🚀 First-time deploy detected!"
@@ -64,8 +76,13 @@ jobs:
               php artisan key:generate
             else
               echo "🔄 Regular update deploy..."
-              NEW_KEY=$(php artisan key:generate --show)
-              sed -i "s|^APP_KEY=.*|APP_KEY=$NEW_KEY|g" .env
+              APP_KEY=$(grep ^APP_KEY= .env | cut -d '=' -f2)
+              if [ -z "$APP_KEY" ]; then
+                echo "⚠️ APP_KEY missing, generating a new one..."
+                php artisan key:generate
+              else
+                echo "🔑 APP_KEY exists, leaving it unchanged."
+              fi
               sed -i "s|^APP_URL=.*|APP_URL=https://ams.iits.website|g" .env
             fi
 
@@ -97,11 +114,11 @@ jobs:
             echo "🔹 Adding .htaccess if it doesn't exist..."
             if [ ! -f ".htaccess" ]; then
               cat > .htaccess << 'EOF'
-                <IfModule mod_rewrite.c>
-                    RewriteEngine On
-                    RewriteRule ^(.*)$ public/$1 [L]
-                </IfModule>
-              EOF
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+EOF
             else
               echo "  - .htaccess already exists, skipping..."
             fi

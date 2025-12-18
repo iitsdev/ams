@@ -46,7 +46,7 @@ jobs:
           REMOTE_HOST: ${{ secrets.HOST }}
           REMOTE_USER: ${{ secrets.USERNAME }}
           REMOTE_PORT: ${{ secrets.PORT }}
-          SOURCE: '.' 
+          SOURCE: '.'
           TARGET: ${{ secrets.DEPLOY_PATH }}
           EXCLUDE: 'node_modules, vendor, .git, .env, public/storage, storage, bootstrap/cache'
           SCRIPT_AFTER: |
@@ -97,11 +97,11 @@ jobs:
             echo "🔹 Adding .htaccess if it doesn't exist..."
             if [ ! -f ".htaccess" ]; then
               cat > .htaccess << 'EOF'
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteRule ^(.*)$ public/$1 [L]
-</IfModule>
-EOF
+            <IfModule mod_rewrite.c>
+                RewriteEngine On
+                RewriteRule ^(.*)$ public/$1 [L]
+            </IfModule>
+                EOF
             else
               echo "  - .htaccess already exists, skipping..."
             fi

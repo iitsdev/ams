@@ -1,4 +1,4 @@
-name: AMS CI/CD – Optimized Production Deploy
+name: AMS CI/CD – Laravel + Vue Optimized Deploy
 
 on:
   push:
@@ -6,12 +6,12 @@ on:
       - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     name: Build & Deploy Laravel + Vue
 
     steps:
-      # 1️⃣ Checkout Repository
+      # 1️⃣ Checkout
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -22,13 +22,13 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, pdo_mysql, bcmath
 
-      # 3️⃣ Setup Node
+      # 3️⃣ Setup Node.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 4️⃣ Install Composer Dependencies (local)
+      # 4️⃣ Install Composer Dependencies
       - name: Install Composer Dependencies
         run: composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
 
@@ -36,9 +36,9 @@ jobs:
       - name: Build Frontend Assets
         run: |
           npm ci
-          npm run build   # builds into public folder
+          npm run build   # outputs into public/build
 
-      # 6️⃣ Deploy Laravel core (excluding public except assets)
+      # 6️⃣ Deploy Laravel Core (excluding public/build)
       - name: Deploy Laravel Core
         uses: easingthemes/ssh-deploy@main
         with:
@@ -48,7 +48,7 @@ jobs:
           REMOTE_PORT: ${{ secrets.PORT }}
           SOURCE: '.'
           TARGET: ${{ secrets.DEPLOY_PATH }}
-          EXCLUDE: 'node_modules, vendor, .git, .env, public/*, public/storage, storage, bootstrap/cache'
+          EXCLUDE: 'node_modules, vendor, .git, .env, public/build, public/storage, storage, bootstrap/cache'
           SCRIPT_AFTER: |
             cd domains/iits.website/public_html/ams
 
@@ -76,20 +76,24 @@ jobs:
               php artisan migrate --force
             fi
 
+            # Optional seeder
             RUN_SEEDER=true
             if [ "$RUN_SEEDER" = true ]; then
               php artisan db:seed --force
             fi
 
-            echo "🔹 Laravel maintenance commands..."
+            echo "🔹 Running Laravel maintenance commands..."
             php artisan config:clear
             php artisan route:clear
             php artisan view:clear
             php artisan optimize
 
+            echo "🔹 Setting permissions..."
+            chmod -R 775 storage bootstrap/cache
+
             echo "🔹 Adding .htaccess if missing..."
             if [ ! -f ".htaccess" ]; then
-              cat > .htaccess << 'EOF'
+              cat > .htaccess <<'EOF'
             <IfModule mod_rewrite.c>
             RewriteEngine On
             RewriteRule ^(.*)$ public/$1 [L]
@@ -97,17 +101,19 @@ jobs:
             EOF
             fi
 
-      # 7️⃣ Deploy public folder (Vue build)
-      - name: Deploy Frontend Assets
+      # 7️⃣ Deploy only Vue build folder
+      - name: Deploy Vue Build
         uses: easingthemes/ssh-deploy@main
         with:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
           REMOTE_HOST: ${{ secrets.HOST }}
           REMOTE_USER: ${{ secrets.USERNAME }}
           REMOTE_PORT: ${{ secrets.PORT }}
-          SOURCE: 'public/*'
-          TARGET: '${{ secrets.DEPLOY_PATH }}/public'
+          SOURCE: 'public/build/*'
+          TARGET: '${{ secrets.DEPLOY_PATH }}/public/build'
           EXCLUDE: ''
           SCRIPT_AFTER: |
-            cd domains/iits.website/public_html/ams
-            echo "🔹 Vue assets updated successfully!"
+            cd domains/iits.website/public_html/ams/public/build
+            echo "🔹 Cleaning old build..."
+            rm -rf * || true
+            echo "🔹 Vue build deployed successfully!"

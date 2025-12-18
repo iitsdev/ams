@@ -347,7 +347,9 @@ const formatDate = (date: string | null) => {
 }
 
 // Helper functions
-const getStatusVariant = (statusName: string) => { return 'default' }
+const getStatusColor = (status: any) => {
+    return status?.color || '#6b7280' // default gray if no color
+}
 const getInitials = (name: string | null | undefined) => {
     if (!name) return '??'
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -534,7 +536,12 @@ const breadcrumbs: BreadcrumbItem[] = [
                                 </TableCell>
                                 <TableCell>{{ asset.category?.name || 'N/A' }}</TableCell>
                                 <TableCell>
-                                    <Badge :variant="getStatusVariant(asset.status?.name || '')">
+                                    <Badge 
+                                        :style="{ 
+                                            backgroundColor: getStatusColor(asset.status), 
+                                            color: '#fff' 
+                                        }"
+                                    >
                                         {{ asset.status?.name || 'N/A' }}
                                     </Badge>
                                 </TableCell>

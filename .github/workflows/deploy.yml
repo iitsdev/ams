@@ -1,0 +1,79 @@
+name: Deploy Laravel to Hostinger (Shared Hosting)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Get source code
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2. PHP
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+        extensions: mbstring, bcmath, pdo, pdo_mysql
+        coverage: none
+
+    # 3. Composer
+    - name: Install Composer dependencies
+      run: composer install --no-dev --prefer-dist --optimize-autoloader
+
+    # 4. Node / Vite
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Install NPM dependencies
+      run: npm ci
+
+    - name: Build Vite assets
+      run: npm run build
+
+    # 5. Upload Laravel CORE (private)
+    - name: Upload Laravel core
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        port: ${{ secrets.PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        source: "."
+        target: ${{ secrets.DEPLOY_PATH }}
+        rm: true
+
+    # 6. Upload PUBLIC folder to subdomain
+    - name: Upload public folder to subdomain
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        port: ${{ secrets.PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        source: "public/*"
+        target: ${{ secrets.PUBLIC_PATH }}
+        strip_components: 1
+
+    # 7. Laravel optimization
+    - name: Run Laravel commands
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        port: ${{ secrets.PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          cd /home/u143562694/domains/iits.website/public_html/ams
+          php artisan migrate --force || true
+          php artisan config:clear
+          php artisan route:clear
+          php artisan view:clear
+          php artisan optimize

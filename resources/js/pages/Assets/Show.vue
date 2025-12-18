@@ -67,6 +67,10 @@ const getStatusVariant = (statusName: string) => {
     return 'default';
 }
 
+const getStatusColor = (status: any) => {
+    return status?.color || '#6b7280'
+}
+
 const formatDate = (date: string | null) => {
     if (!date) return 'N/A'
     return new Date(date).toLocaleDateString('en-US', {
@@ -190,7 +194,10 @@ const openReassignDialog = () => {
                         </div>
                         <div class="flex justify-between">
                             <span class="text-muted-foreground">Status</span>
-                            <Badge :variant="getStatusVariant(asset?.status?.name || '')">
+                            <Badge :style="{
+                                backgroundColor: getStatusColor(asset?.status),
+                                color: '#fff'
+                            }">
                                 {{ asset?.status?.name || 'N/A' }}
                             </Badge>
                         </div>

@@ -46,7 +46,7 @@ const mainNavItems: NavItem[] = [
             },
             {
                 title: 'Statuses',
-                href: route('locations.index'),
+                href: route('asset-statuses.index'),
                 icon: ListCheck,
             },
             {

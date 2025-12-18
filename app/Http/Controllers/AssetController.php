@@ -32,27 +32,27 @@ class AssetController extends Controller
         }
 
         $assets = Asset::query()
-            ->with(['category', 'status', 'location', 'assignedToUser', 'supplier'])
-            ->when($filters['search'] ?? null, function (Builder $query, $search) {
-                $query->where(function (Builder $query) use ($search) {
+            ->with(['category', 'status:id,name,color', 'location', 'assignedToUser', 'supplier'])
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $query->where(function ($query) use ($search) {
                     $query->where('name', 'like', "%{$search}%")
                         ->orWhere('asset_tag', 'like', "%{$search}%")
                         ->orWhere('serial_number', 'like', "%{$search}%");
                 });
             })
-            ->when($filters['status'] ?? null, function (Builder $query, $statusId) {
+            ->when($filters['status'] ?? null, function ($query, $statusId) {
                 if ($statusId === 'all') return;
                 $query->where('status_id', $statusId);
             })
-            ->when($filters['category'] ?? null, function (Builder $query, $categoryId) {
+            ->when($filters['category'] ?? null, function ($query, $categoryId) {
                 if ($categoryId === 'all') return;
                 $query->where('category_id', $categoryId);
             })
-            ->when($filters['location'] ?? null, function (Builder $query, $locationId) {
+            ->when($filters['location'] ?? null, function ($query, $locationId) {
                 if ($locationId === 'all') return;
                 $query->where('location_id', $locationId);
             })
-            ->when($filters['assigned_user'] ?? null, function (Builder $query, $userId) {
+            ->when($filters['assigned_user'] ?? null, function ($query, $userId) {
                 if ($userId === 'all') return;
                 if ($userId === 'unassigned') {
                     $query->whereNull('assigned_to');
@@ -66,7 +66,6 @@ class AssetController extends Controller
 
         $assets->getCollection()->transform(function ($asset) {
             $asset->depreciation = $this->calculateDepreciation($asset);
-            // Make sure the years_since_purchase accessor is called
             $asset->makeVisible('years_since_purchase');
             return $asset;
         });
@@ -79,7 +78,7 @@ class AssetController extends Controller
             ]),
             'dropdowns' => [
                 'users' => User::all(['id', 'name']),
-                'statuses' => AssetStatus::all(['id', 'name']),
+                'statuses' => AssetStatus::all(['id', 'name', 'color']),
                 'categories' => Category::all(['id', 'name']),
                 'locations' => Location::all(['id', 'name']),
             ],
@@ -311,6 +310,10 @@ class AssetController extends Controller
         // Get "In Use" status
         $inUseStatus = AssetStatus::where('name', 'In Use')->first();
         
+        if (!$inUseStatus) {
+            return back()->with('error', 'In Use status not found. Please create it first.');
+        }
+
         // Update asset
         $asset->update([
             'assigned_to' => $validated['user_id'],
@@ -416,7 +419,30 @@ class AssetController extends Controller
         $assignments = $asset->assignments()
             ->with(['user.department', 'assignedBy'])
             ->orderBy('assigned_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($assignment) {
+                return [
+                    'id' => $assignment->id,
+                    'user' => [
+                        'name' => $assignment->user->name,
+                        'email' => $assignment->user->email,
+                        'department' => $assignment->user->department ? [
+                            'name' => $assignment->user->department->name
+                        ] : null,
+                    ],
+                    'assigned_by' => [
+                        'name' => $assignment->assignedBy->name,
+                    ],
+                    'assigned_at' => $assignment->assigned_at,
+                    'returned_at' => $assignment->returned_at,
+                    'notes' => $assignment->notes,
+                    'document_path' => $assignment->document_path,
+                    'is_current' => is_null($assignment->returned_at),
+                    'duration_days' => $assignment->returned_at 
+                        ? Carbon::parse($assignment->assigned_at)->diffInDays(Carbon::parse($assignment->returned_at))
+                        : Carbon::parse($assignment->assigned_at)->diffInDays(now()),
+                ];
+            });
 
         return response()->json([
             'asset' => [
@@ -436,6 +462,10 @@ class AssetController extends Controller
         }
 
         $inStockStatus = AssetStatus::where('name', 'In Stock')->firstOrFail();
+
+        if (!$inStockStatus) {
+            return back()->with('error', 'In Stock status not found. Please create it first.');
+        }
         
         // Close current assignment
         AssetAssignment::where('asset_id', $asset->id)

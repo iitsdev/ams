@@ -13,6 +13,8 @@ class AssetStatus extends Model
 
     protected  $fillable = [
         'name',
+        'color',
+        'description',
     ];
 
 

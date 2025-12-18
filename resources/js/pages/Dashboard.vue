@@ -128,6 +128,10 @@ const formatDaysRemaining = (days: number) => {
     const roundedDays = Math.floor(Math.abs(days))
     return roundedDays
 }
+
+const getStatusColor = (status: any) => {
+    return status?.color || '#6b7280'
+}
 </script>
 
 <template>
@@ -378,8 +382,7 @@ const formatDaysRemaining = (days: number) => {
                                     <Badge :variant="getWarrantyBadgeVariant(asset.days_remaining)">
                                         <AlertCircle class="h-3 w-3 mr-1" />
                                         {{ formatDaysRemaining(asset.days_remaining) }} days {{ asset.days_remaining < 0
-                                            ? 'overdue' : 'left' }}
-                                    </Badge>
+                                            ? 'overdue' : 'left' }} </Badge>
                                 </div>
                             </Link>
                         </div>

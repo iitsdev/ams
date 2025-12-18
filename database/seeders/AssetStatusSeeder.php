@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\AssetStatus;
 
@@ -14,11 +13,20 @@ class AssetStatusSeeder extends Seeder
      */
     public function run(): void
     {
-        AssetStatus::firstOrCreate(['name' => 'In stock']);
-        AssetStatus::firstOrCreate(['name' => 'Deployed']);
-        AssetStatus::firstOrCreate(['name' => 'In Repair']);
-        AssetStatus::firstOrCreate(['name' => 'Archived']);
-        AssetStatus::firstOrCreate(['name' => 'Retired']);
-        
+        $statuses = [
+            'Active',
+            'Vacant',
+            'Replacement',
+            'For Repair',
+            'Lost',
+            'For Checking',
+            'For Disposal',
+            'Service Unit',
+            'Incomming',
+        ];
+
+        foreach ($statuses as $status) {
+            AssetStatus::firstOrCreate(['name' => $status]);
+        }
     }
 }

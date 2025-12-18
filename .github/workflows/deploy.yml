@@ -95,7 +95,7 @@ jobs:
             fi
 
             # Optional: Run seeder
-            RUN_SEEDER=false   # change to false if you don't want to seed
+            RUN_SEEDER=true   # change to false if you don't want to seed
             if [ "$RUN_SEEDER" = true ]; then
               echo "🌱 Running database seeders..."
               php artisan db:seed --force

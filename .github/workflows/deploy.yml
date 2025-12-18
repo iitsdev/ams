@@ -1,4 +1,4 @@
-name: DTR CI/CD – Production Safe & Optimized
+name: AMS CI/CD – Production Safe & Optimized
 
 on:
   push:

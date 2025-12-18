@@ -11,7 +11,7 @@ jobs:
     name: Build & Deploy Laravel + Vue
 
     steps:
-      # 1️⃣ Checkout
+      # 1️⃣ Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -22,7 +22,7 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, pdo_mysql, bcmath
 
-      # 3️⃣ Setup Node.js
+      # 3️⃣ Setup Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -36,7 +36,7 @@ jobs:
       - name: Build Frontend Assets
         run: |
           npm ci
-          npm run build   # outputs into public/build
+          npm run build   # generates public/build
 
       # 6️⃣ Deploy Laravel Core (excluding public/build)
       - name: Deploy Laravel Core
@@ -52,7 +52,7 @@ jobs:
           SCRIPT_AFTER: |
             cd domains/iits.website/public_html/ams
 
-            echo "🔹 Handling environment variables..."
+            # ENV
             FIRST_DEPLOY=false
             if [ ! -f ".env" ]; then
               FIRST_DEPLOY=true
@@ -66,32 +66,32 @@ jobs:
               sed -i "s|^APP_URL=.*|APP_URL=https://ams.iits.website|g" .env
             fi
 
-            echo "🔹 Installing composer dependencies on server..."
+            # Composer
             composer install --no-dev --optimize-autoloader
 
-            echo "🔹 Running Laravel migrations..."
+            # Migrations
             if [ "$FIRST_DEPLOY" = true ]; then
               php artisan migrate:fresh --force
             else
               php artisan migrate --force
             fi
 
-            # Optional seeder
+            # Seeder (optional)
             RUN_SEEDER=true
             if [ "$RUN_SEEDER" = true ]; then
               php artisan db:seed --force
             fi
 
-            echo "🔹 Running Laravel maintenance commands..."
+            # Laravel optimizations
             php artisan config:clear
             php artisan route:clear
             php artisan view:clear
             php artisan optimize
 
-            echo "🔹 Setting permissions..."
+            # Permissions
             chmod -R 775 storage bootstrap/cache
 
-            echo "🔹 Adding .htaccess if missing..."
+            # .htaccess
             if [ ! -f ".htaccess" ]; then
               cat > .htaccess <<'EOF'
             <IfModule mod_rewrite.c>

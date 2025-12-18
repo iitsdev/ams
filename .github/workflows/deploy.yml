@@ -97,11 +97,11 @@ jobs:
             echo "🔹 Adding .htaccess if it doesn't exist..."
             if [ ! -f ".htaccess" ]; then
               cat > .htaccess << 'EOF'
-            <IfModule mod_rewrite.c>
-                RewriteEngine On
-                RewriteRule ^(.*)$ public/$1 [L]
-            </IfModule>
-                EOF
+                <IfModule mod_rewrite.c>
+                    RewriteEngine On
+                    RewriteRule ^(.*)$ public/$1 [L]
+                </IfModule>
+              EOF
             else
               echo "  - .htaccess already exists, skipping..."
             fi

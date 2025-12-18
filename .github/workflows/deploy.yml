@@ -63,18 +63,20 @@ jobs:
           TARGET: ${{ secrets.DEPLOY_PATH }}
           EXCLUDE: '/node_modules, /vendor, /.git, .env, /public/storage, /storage, /bootstrap/cache'
           SCRIPT_AFTER: |
-            cd ${{ secrets.DEPLOY_PATH }}
+            cd domains/iits.website/public_html/ams
 
             echo "🔹 Setting permissions for storage and bootstrap/cache..."
             chmod -R 775 storage bootstrap/cache
 
             echo "🔹 Handling environment variables..."
+            FIRST_DEPLOY=false
             if [ ! -f ".env" ]; then
-              echo "  - First-time deploy: creating .env from .env.example"
+              echo "🚀 First-time deploy detected!"
+              FIRST_DEPLOY=true
               cp .env.example .env
               php artisan key:generate
             else
-              echo "  - Updating APP_URL and regenerating APP_KEY..."
+              echo "🔄 Regular update deploy..."
               NEW_KEY=$(php artisan key:generate --show)
               sed -i "s|^APP_KEY=.*|APP_KEY=$NEW_KEY|g" .env
               sed -i "s|^APP_URL=.*|APP_URL=https://ams.iits.website|g" .env
@@ -83,8 +85,23 @@ jobs:
             echo "🔹 Installing composer dependencies on server..."
             composer install --no-dev --optimize-autoloader
 
+            echo "🔹 Running Laravel migrations..."
+            if [ "$FIRST_DEPLOY" = true ]; then
+              echo "💥 Running migrate:fresh for first deploy..."
+              php artisan migrate:fresh --force
+            else
+              echo "✅ Running regular migrate..."
+              php artisan migrate --force
+            fi
+
+            # Optional: Run seeder
+            RUN_SEEDER=true   # change to false if you don't want to seed
+            if [ "$RUN_SEEDER" = true ]; then
+              echo "🌱 Running database seeders..."
+              php artisan db:seed --force
+            fi
+
             echo "🔹 Running Laravel maintenance commands..."
-            php artisan migrate --force || true
             php artisan config:clear
             php artisan route:clear
             php artisan view:clear
@@ -94,10 +111,10 @@ jobs:
             if [ ! -f ".htaccess" ]; then
               cat > .htaccess << 'EOF'
             <IfModule mod_rewrite.c>
-                RewriteEngine On
-                RewriteRule ^(.*)$ public/$1 [L]
+            RewriteEngine On
+            RewriteRule ^(.*)$ public/$1 [L]
             </IfModule>
-            EOF
+                EOF
             else
               echo "  - .htaccess already exists, skipping..."
             fi

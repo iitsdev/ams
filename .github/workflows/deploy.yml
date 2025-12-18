@@ -1,4 +1,4 @@
-name: AMS CI/CD – Production Safe & Optimized
+name: AMS CI/CD – Optimized Production Deploy
 
 on:
   push:
@@ -6,82 +6,62 @@ on:
       - main
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     name: Build & Deploy Laravel + Vue
 
     steps:
-      # =========================
       # 1️⃣ Checkout Repository
-      # =========================
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # =========================
       # 2️⃣ Setup PHP
-      # =========================
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, pdo_mysql, bcmath
 
-      # =========================
-      # 3️⃣ Setup Node.js
-      # =========================
+      # 3️⃣ Setup Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # =========================
-      # 4️⃣ Install Composer Dependencies (local build)
-      # =========================
+      # 4️⃣ Install Composer Dependencies (local)
       - name: Install Composer Dependencies
         run: composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
 
-      # =========================
-      # 5️⃣ Build Vue/Vite Assets (local build)
-      # =========================
+      # 5️⃣ Build Vue/Vite Assets (local)
       - name: Build Frontend Assets
         run: |
           npm ci
-          npm run build   # builds assets into public folder
+          npm run build   # builds into public folder
 
-      # =========================
-      # 6️⃣ Deploy to Hostinger via SSH
-      # =========================
-      - name: Deploy to Subdomain
+      # 6️⃣ Deploy Laravel core (excluding public except assets)
+      - name: Deploy Laravel Core
         uses: easingthemes/ssh-deploy@main
         with:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
           REMOTE_HOST: ${{ secrets.HOST }}
           REMOTE_USER: ${{ secrets.USERNAME }}
           REMOTE_PORT: ${{ secrets.PORT }}
-          SOURCE: '.' 
+          SOURCE: '.'
           TARGET: ${{ secrets.DEPLOY_PATH }}
-          EXCLUDE: 'node_modules, vendor, .git, .env, public/storage, storage, bootstrap/cache'
+          EXCLUDE: 'node_modules, vendor, .git, .env, public/*, public/storage, storage, bootstrap/cache'
           SCRIPT_AFTER: |
             cd domains/iits.website/public_html/ams
 
-            echo "🔹 Setting permissions for storage and bootstrap/cache..."
-            chmod -R 775 storage bootstrap/cache
-
-            echo "🔹 Handling environment variables and APP_KEY..."
+            echo "🔹 Handling environment variables..."
             FIRST_DEPLOY=false
             if [ ! -f ".env" ]; then
-              echo "🚀 First-time deploy detected!"
               FIRST_DEPLOY=true
               cp .env.example .env
               php artisan key:generate
             else
-              echo "🔄 Regular update deploy..."
               APP_KEY=$(grep ^APP_KEY= .env | cut -d '=' -f2)
               if [ -z "$APP_KEY" ]; then
-                echo "⚠️ APP_KEY missing, generating a new one..."
                 php artisan key:generate
-              else
-                echo "🔑 APP_KEY exists, leaving it unchanged."
               fi
               sed -i "s|^APP_URL=.*|APP_URL=https://ams.iits.website|g" .env
             fi
@@ -91,36 +71,43 @@ jobs:
 
             echo "🔹 Running Laravel migrations..."
             if [ "$FIRST_DEPLOY" = true ]; then
-              echo "💥 Running migrate:fresh for first deploy..."
               php artisan migrate:fresh --force
             else
-              echo "✅ Running regular migrate..."
               php artisan migrate --force
             fi
 
-            # Optional seeder
             RUN_SEEDER=true
             if [ "$RUN_SEEDER" = true ]; then
-              echo "🌱 Running database seeders..."
               php artisan db:seed --force
             fi
 
-            echo "🔹 Running Laravel maintenance commands..."
+            echo "🔹 Laravel maintenance commands..."
             php artisan config:clear
             php artisan route:clear
             php artisan view:clear
             php artisan optimize
 
-            echo "🔹 Adding .htaccess if it doesn't exist..."
+            echo "🔹 Adding .htaccess if missing..."
             if [ ! -f ".htaccess" ]; then
               cat > .htaccess << 'EOF'
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteRule ^(.*)$ public/$1 [L]
-</IfModule>
-EOF
-            else
-              echo "  - .htaccess already exists, skipping..."
+            <IfModule mod_rewrite.c>
+            RewriteEngine On
+            RewriteRule ^(.*)$ public/$1 [L]
+            </IfModule>
+            EOF
             fi
 
-            echo "✅ Deployment finished successfully!"
+      # 7️⃣ Deploy public folder (Vue build)
+      - name: Deploy Frontend Assets
+        uses: easingthemes/ssh-deploy@main
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.HOST }}
+          REMOTE_USER: ${{ secrets.USERNAME }}
+          REMOTE_PORT: ${{ secrets.PORT }}
+          SOURCE: 'public/*'
+          TARGET: '${{ secrets.DEPLOY_PATH }}/public'
+          EXCLUDE: ''
+          SCRIPT_AFTER: |
+            cd domains/iits.website/public_html/ams
+            echo "🔹 Vue assets updated successfully!"

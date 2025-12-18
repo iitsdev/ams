@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: '20'
 
-      # 4️⃣ Install Composer Dependencies
+      # 4️⃣ Install Composer Dependencies (local)
       - name: Install Composer Dependencies
         run: composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
 
@@ -94,14 +94,14 @@ jobs:
             echo "🔹 Adding .htaccess if missing..."
             if [ ! -f ".htaccess" ]; then
               cat > .htaccess <<'EOF'
-            <IfModule mod_rewrite.c>
-            RewriteEngine On
-            RewriteRule ^(.*)$ public/$1 [L]
-            </IfModule>
-            EOF
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+EOF
             fi
 
-      # 7️⃣ Deploy only Vue build folder
+      # 7️⃣ Deploy Vue build folder (public/build)
       - name: Deploy Vue Build
         uses: easingthemes/ssh-deploy@main
         with:
@@ -112,8 +112,9 @@ jobs:
           SOURCE: 'public/build/*'
           TARGET: '${{ secrets.DEPLOY_PATH }}/public/build'
           EXCLUDE: ''
-          SCRIPT_AFTER: |
+          SCRIPT_BEFORE: |
             cd domains/iits.website/public_html/ams/public/build
-            echo "🔹 Cleaning old build..."
+            echo "🔹 Cleaning old Vue build..."
             rm -rf * || true
+          SCRIPT_AFTER: |
             echo "🔹 Vue build deployed successfully!"

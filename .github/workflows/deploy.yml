@@ -37,7 +37,7 @@ jobs:
           REMOTE_PORT: ${{ secrets.PORT }}
           SOURCE: '.'
           # TARGET must be the full path (e.g., /home/u12345/domains/iits.website/public_html/ams)
-          TARGET: ${{ secrets.DEPLOY_PATH }} 
+          TARGET: ${{ secrets.DEPLOY_PATH }}
           # ⚠️ REMOVED 'public/build' from exclude so it uploads with the app
           # ⚠️ REMOVED 'vendor' from exclude so we don't rely on server network for composer (optional, see note below)
           # Ideally, install composer on server. If you want to install on server, keep 'vendor' in exclude.
@@ -57,7 +57,7 @@ jobs:
             # --- DEPENDENCIES ---
             # Hostinger often blocks outgoing ports, but usually Composer works. 
             # If it fails, consider installing 'vendor' in GitHub actions and uploading it (remove vendor from EXCLUDE above).
-            composer install --no-dev --optimize-autoloader
+            composer install --optimize-autoloader
 
             # --- MIGRATIONS ---
             # NEVER use migrate:fresh in production CD
@@ -67,7 +67,7 @@ jobs:
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
-            
+
             # --- VITE/ASSET FIX ---
             # Ensure the build manifest exists
             if [ -d "public/build" ]; then

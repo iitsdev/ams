@@ -15,31 +15,20 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup PHP
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: mbstring, pdo_mysql, bcmath
-
-      # 3️⃣ Setup Node
+      # 2️⃣ Setup Node (Build Frontend Locally)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 4️⃣ Install Composer Dependencies (local)
-      - name: Install Composer Dependencies
-        run: composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
-
-      # 5️⃣ Build Vue/Vite Assets (local)
       - name: Build Frontend Assets
         run: |
           npm ci
-          npm run build   # generates public/build
+          npm run build
+        # This generates 'public/build'. We will upload this along with the Laravel code.
 
-      # 6️⃣ Deploy Laravel Core (excluding public/build)
-      - name: Deploy Laravel Core
+      # 3️⃣ Deploy Everything (One Step)
+      - name: Deploy Application
         uses: easingthemes/ssh-deploy@main
         with:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
@@ -47,74 +36,57 @@ jobs:
           REMOTE_USER: ${{ secrets.USERNAME }}
           REMOTE_PORT: ${{ secrets.PORT }}
           SOURCE: '.'
-          TARGET: ${{ secrets.DEPLOY_PATH }}
-          EXCLUDE: 'node_modules, vendor, .git, .env, public/build, public/storage, storage, bootstrap/cache'
+          # TARGET must be the full path (e.g., /home/u12345/domains/iits.website/public_html/ams)
+          TARGET: ${{ secrets.DEPLOY_PATH }} 
+          # ⚠️ REMOVED 'public/build' from exclude so it uploads with the app
+          # ⚠️ REMOVED 'vendor' from exclude so we don't rely on server network for composer (optional, see note below)
+          # Ideally, install composer on server. If you want to install on server, keep 'vendor' in exclude.
+          EXCLUDE: 'node_modules, .git, .github, .env, public/storage, storage, bootstrap/cache'
           SCRIPT_AFTER: |
-            cd domains/iits.website/public_html/ams
+            # Use the secret path to ensure consistency
+            cd ${{ secrets.DEPLOY_PATH }}
 
-            # ENV
-            FIRST_DEPLOY=false
+            # --- ENV SETUP ---
             if [ ! -f ".env" ]; then
-              FIRST_DEPLOY=true
+              echo "Creating .env file..."
               cp .env.example .env
-              php artisan key:generate
-            else
-              APP_KEY=$(grep ^APP_KEY= .env | cut -d '=' -f2)
-              if [ -z "$APP_KEY" ]; then
-                php artisan key:generate
-              fi
               sed -i "s|^APP_URL=.*|APP_URL=https://ams.iits.website|g" .env
+              php artisan key:generate
             fi
 
-            # Composer
+            # --- DEPENDENCIES ---
+            # Hostinger often blocks outgoing ports, but usually Composer works. 
+            # If it fails, consider installing 'vendor' in GitHub actions and uploading it (remove vendor from EXCLUDE above).
             composer install --no-dev --optimize-autoloader
 
-            # Migrations
-            if [ "$FIRST_DEPLOY" = true ]; then
-              php artisan migrate:fresh --force
-            else
-              php artisan migrate --force
+            # --- MIGRATIONS ---
+            # NEVER use migrate:fresh in production CD
+            php artisan migrate --force
+
+            # --- CACHES & OPTIMIZATION ---
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            
+            # --- VITE/ASSET FIX ---
+            # Ensure the build manifest exists
+            if [ -d "public/build" ]; then
+                chmod -R 755 public/build
             fi
 
-            # Seeder (optional)
-            RUN_SEEDER=true
-            if [ "$RUN_SEEDER" = true ]; then
-              php artisan db:seed --force
-            fi
+            # --- PERMISSIONS (Hostinger Specific) ---
+            # Hostinger runs FastCGI; 775 can actually cause 500 errors. 755 is safer.
+            chmod -R 755 storage bootstrap/cache
 
-            # Laravel optimizations
-            php artisan config:clear
-            php artisan route:clear
-            php artisan view:clear
-            php artisan optimize
-
-            # Permissions
-            chmod -R 775 storage bootstrap/cache
-
-            # .htaccess
+            # --- .htaccess (Only needed if NOT pointing domain to /public) ---
             if [ ! -f ".htaccess" ]; then
+              echo "Creating .htaccess..."
               cat > .htaccess <<'EOF'
             <IfModule mod_rewrite.c>
-            RewriteEngine On
-            RewriteRule ^(.*)$ public/$1 [L]
+              RewriteEngine On
+              RewriteRule ^(.*)$ public/$1 [L]
             </IfModule>
             EOF
             fi
 
-      # 7️⃣ Deploy Vue build folder (public/build)
-      - name: Deploy Vue Build
-        uses: easingthemes/ssh-deploy@main
-        with:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.HOST }}
-          REMOTE_USER: ${{ secrets.USERNAME }}
-          REMOTE_PORT: ${{ secrets.PORT }}
-          SOURCE: 'public/build/*'
-          TARGET: '${{ secrets.DEPLOY_PATH }}/public/build'
-          EXCLUDE: ''
-          SCRIPT_BEFORE: |
-            cd domains/iits.website/public_html/ams/public/build
-            echo "🔹 Cleaning old Vue build..."
-            rm -rf * || true
-          SCRIPT_AFTER: |
-            echo "🔹 Vue build deployed successfully!"
+            echo "🚀 Deployment Complete!"

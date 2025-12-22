@@ -14,15 +14,20 @@ class AssetStatusSeeder extends Seeder
     public function run(): void
     {
         $statuses = [
-            'Active',
-            'Vacant',
+            // Core lifecycle
+            'Active',        // fallback for assigned
+            'Vacant',        // fallback for unassigned
+            'In Use',        // preferred for assigned
+            'In Stock',      // preferred for unassigned
+
+            // Additional
             'Replacement',
             'For Repair',
             'Lost',
             'For Checking',
             'For Disposal',
             'Service Unit',
-            'Incomming',
+            'Incoming',
         ];
 
         foreach ($statuses as $status) {

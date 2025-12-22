@@ -11,28 +11,58 @@ use App\Models\Location;
 use App\Models\Brand;
 use App\Models\Supplier;
 use App\Models\CheckinCheckoutLog;
-use App\Models\AssetAssignment;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Validation\Rules\File;
+use App\Imports\AssetsImport;
+use App\Exports\AssetsExport;
+use Picqer\Barcode\BarcodeGeneratorPNG;
+use Illuminate\Support\Facades\Storage;
+use App\Models\AssetAssignment;
 
 class AssetController extends Controller
 {
     public function index(Request $request)
     {
-        $filters = $request->only('search', 'status', 'category', 'location', 'assigned_user');
+        $filters = $request->only('search', 'status', 'category', 'location', 'assigned_user', 'age_min_months', 'age_max_months');
         $sortBy = $request->input('sort_by', 'created_at');
         $sortDirection = $request->input('sort_direction', 'desc');
 
-        $sortableColumns = ['name', 'created_at'];
+        // Map UI sort keys to actual DB columns
+        $sortColumnMap = [
+            'name' => 'assets.name',
+            'created_at' => 'assets.created_at',
+            'purchase_date' => 'assets.purchase_date', // used by Age
+            'category' => 'categories.name',
+            'status' => 'asset_statuses.name',
+            'location' => 'locations.name',
+            'assigned_user_name' => 'users.name',
+            // Approximation for Value: use purchase_cost
+            'value' => 'assets.purchase_cost',
+        ];
 
-        if (!in_array($sortBy, $sortableColumns)) {
+        if (!array_key_exists($sortBy, $sortColumnMap)) {
             $sortBy = 'created_at';
         }
 
         $assets = Asset::query()
             ->with(['category', 'status:id,name,color', 'location', 'assignedToUser', 'supplier'])
+            // Conditional joins for relational sorting
+            ->when($sortBy === 'category', function ($q) {
+                $q->leftJoin('categories', 'categories.id', '=', 'assets.category_id');
+            })
+            ->when($sortBy === 'status', function ($q) {
+                $q->leftJoin('asset_statuses', 'asset_statuses.id', '=', 'assets.status_id');
+            })
+            ->when($sortBy === 'location', function ($q) {
+                $q->leftJoin('locations', 'locations.id', '=', 'assets.location_id');
+            })
+            ->when($sortBy === 'assigned_user_name', function ($q) {
+                $q->leftJoin('users', 'users.id', '=', 'assets.assigned_to');
+            })
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($query) use ($search) {
                     $query->where('name', 'like', "%{$search}%")
@@ -60,15 +90,24 @@ class AssetController extends Controller
                     $query->where('assigned_to', $userId);
                 }
             })
-            ->orderBy($sortBy, $sortDirection)
+            ->when($filters['age_min_months'] ?? null, function ($query, $minMonths) {
+                if ($minMonths === 'all' || $minMonths === null || $minMonths === '') return;
+                $months = (int) $minMonths;
+                if ($months > 0) {
+                    $query->whereDate('purchase_date', '<=', now()->subMonths($months));
+                }
+            })
+            ->when($filters['age_max_months'] ?? null, function ($query, $maxMonths) {
+                if ($maxMonths === 'all' || $maxMonths === null || $maxMonths === '') return;
+                $months = (int) $maxMonths;
+                if ($months > 0) {
+                    $query->whereDate('purchase_date', '>=', now()->subMonths($months));
+                }
+            })
+            ->select('assets.*')
+            ->orderBy($sortColumnMap[$sortBy], $sortDirection)
             ->paginate(10)
             ->withQueryString();
-
-        $assets->getCollection()->transform(function ($asset) {
-            $asset->depreciation = $this->calculateDepreciation($asset);
-            $asset->makeVisible('years_since_purchase');
-            return $asset;
-        });
 
         return Inertia::render('assets/Index', [
             'assets' => $assets,
@@ -104,68 +143,14 @@ class AssetController extends Controller
             'maintenanceLogs.performedByUser'
         ]);
 
-        // Calculate depreciation
-        if ($asset->purchase_cost && $asset->purchase_date) {
-            $purchaseDate = Carbon::parse($asset->purchase_date);
-            $monthsSincePurchase = $purchaseDate->diffInMonths(now());
-            $usefulLifeMonths = 60; // 5 years
-            
-            $monthlyDepreciation = $asset->purchase_cost / $usefulLifeMonths;
-            $accumulatedDepreciation = min(
-                $monthlyDepreciation * $monthsSincePurchase,
-                $asset->purchase_cost
-            );
-            $currentValue = max(0, $asset->purchase_cost - $accumulatedDepreciation);
-
-            $asset->depreciation = [
-                'monthly_depreciation' => number_format($monthlyDepreciation, 2),
-                'accumulated_depreciation' => number_format($accumulatedDepreciation, 2),
-                'current_value' => number_format($currentValue, 2),
-            ];
-        }
+        // Depreciation and age come from model accessors (appends)
 
         return Inertia::render('assets/Show', [
             'asset' => $asset,
         ]);
     }
 
-    private function calculateDepreciation(Asset $asset): ?array
-    {
-
-        // Ensure we have all the required data
-        if (!$asset->purchase_cost || !$asset->purchase_date || !$asset->category?->lifespan_months) {
-            return null;
-        }
-
-        // Use startOfDay() to ignore time and prevent small calculation errors
-        $purchaseDate = $asset->purchase_date->startOfDay();
-        $now = now()->startOfDay();
-
-        // If the asset is new, it has not depreciated
-        if ($purchaseDate->isAfter($now) || $purchaseDate->isSameDay($now)) {
-            return [
-                'current_value' => round($asset->purchase_cost, 2),
-                'monthly_depreciation' => round($asset->purchase_cost / $asset->category->lifespan_months, 2),
-            ];
-        }
-
-        $ageInMonths = $purchaseDate->diffInMonths($now);
-        $lifespanMonths = (int) $asset->category->lifespan_months;
-
-        // Cap the age at the asset's total lifespan
-        if ($ageInMonths > $lifespanMonths) {
-            $ageInMonths = $lifespanMonths;
-        }
-
-        $monthlyDepreciation = (float) $asset->purchase_cost / $lifespanMonths;
-        $totalDepreciation = $monthlyDepreciation * $ageInMonths;
-        $currentValue = (float) $asset->purchase_cost - $totalDepreciation;
-
-        return [
-            'current_value' => round($currentValue, 2),
-            'monthly_depreciation' => round($monthlyDepreciation, 2),
-        ];
-    }
+    // Depreciation calculation lives in the Asset model accessor
 
     public function create()
     {
@@ -305,13 +290,17 @@ class AssetController extends Controller
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'notes' => 'nullable|string',
+            'document' => [
+                'nullable',
+                File::types(['pdf','jpg','jpeg','png','doc','docx'])->max(5120),
+            ],
         ]);
 
-        // Get "In Use" status
-        $inUseStatus = AssetStatus::where('name', 'In Use')->first();
+        // Get assignment status (prefer "In Use", fallback to "Active")
+        $inUseStatus = AssetStatus::whereIn('name', ['In Use', 'Active'])->first();
         
         if (!$inUseStatus) {
-            return back()->with('error', 'In Use status not found. Please create it first.');
+            return back()->with('error', 'Assignment status not found (need "In Use" or "Active").');
         }
 
         // Update asset
@@ -321,6 +310,12 @@ class AssetController extends Controller
             'deployed_at' => $asset->deployed_at ?? now(),
         ]);
 
+        // Handle optional attachment
+        $documentPath = null;
+        if ($request->hasFile('document')) {
+            $documentPath = $request->file('document')->store('assignments', 'public');
+        }
+
         // Create assignment record
         AssetAssignment::create([
             'asset_id' => $asset->id,
@@ -328,6 +323,7 @@ class AssetController extends Controller
             'assigned_by' => auth()->id(),
             'assigned_at' => now(),
             'notes' => $validated['notes'] ?? null,
+            'document_path' => $documentPath,
         ]);
 
         return back()->with('success', 'Asset assigned successfully!');
@@ -338,6 +334,10 @@ class AssetController extends Controller
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'notes' => 'nullable|string',
+            'document' => [
+                'nullable',
+                File::types(['pdf','jpg','jpeg','png','doc','docx'])->max(5120),
+            ],
         ]);
 
         // Return current assignment
@@ -352,6 +352,12 @@ class AssetController extends Controller
             ]);
         }
 
+        // Handle optional attachment
+        $documentPath = null;
+        if ($request->hasFile('document')) {
+            $documentPath = $request->file('document')->store('assignments', 'public');
+        }
+
         // Create new assignment
         AssetAssignment::create([
             'asset_id' => $asset->id,
@@ -359,6 +365,7 @@ class AssetController extends Controller
             'assigned_by' => auth()->id(),
             'assigned_at' => now(),
             'notes' => $validated['notes'] ?? null,
+            'document_path' => $documentPath,
         ]);
 
         // Update asset
@@ -417,7 +424,7 @@ class AssetController extends Controller
     public function getAssignments(Asset $asset)
     {
         $assignments = $asset->assignments()
-            ->with(['user.department', 'assignedBy'])
+            ->with(['user.department', 'assignedByUser', 'returnedByUser'])
             ->orderBy('assigned_at', 'desc')
             ->get()
             ->map(function ($assignment) {
@@ -431,10 +438,13 @@ class AssetController extends Controller
                         ] : null,
                     ],
                     'assigned_by' => [
-                        'name' => $assignment->assignedBy->name,
+                        'name' => optional($assignment->assignedByUser)->name,
                     ],
                     'assigned_at' => $assignment->assigned_at,
                     'returned_at' => $assignment->returned_at,
+                    'returned_by' => [
+                        'name' => optional($assignment->returnedByUser)->name,
+                    ],
                     'notes' => $assignment->notes,
                     'document_path' => $assignment->document_path,
                     'is_current' => is_null($assignment->returned_at),
@@ -454,6 +464,23 @@ class AssetController extends Controller
         ]);
     }
 
+    public function downloadAssignmentDocument(Asset $asset, AssetAssignment $assignment)
+    {
+        if ($assignment->asset_id !== $asset->id) {
+            abort(404);
+        }
+
+        if (!$assignment->document_path) {
+            abort(404);
+        }
+
+        if (!Storage::disk('public')->exists($assignment->document_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->download($assignment->document_path);
+    }
+
     public function unassign(Asset $asset)
     {
         // Check if asset is assigned
@@ -461,23 +488,28 @@ class AssetController extends Controller
             return back()->with('error', 'Asset is not assigned to anyone.');
         }
 
-        $inStockStatus = AssetStatus::where('name', 'In Stock')->firstOrFail();
+        // Get unassignment status (prefer "In Stock", fallback to "Vacant")
+        $inStockStatus = AssetStatus::whereIn('name', ['In Stock', 'Vacant'])->first();
 
         if (!$inStockStatus) {
-            return back()->with('error', 'In Stock status not found. Please create it first.');
+            return back()->with('error', 'Unassignment status not found (need "In Stock" or "Vacant").');
         }
         
         // Close current assignment
         AssetAssignment::where('asset_id', $asset->id)
             ->whereNull('returned_at')
-            ->update(['returned_at' => now()]);
+            ->update([
+                'returned_at' => now(),
+                'returned_by' => auth()->id(),
+            ]);
 
         // Log the checkin
         CheckinCheckoutLog::create([
             'asset_id' => $asset->id,
             'user_id' => $asset->assigned_to,
             'action' => 'checkin',
-            'timestamp' => now(),
+            'action_date' => now(),
+            'notes' => 'Unassigned via UI',
         ]);
 
         // Update asset - remove assignment and set to In Stock

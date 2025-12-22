@@ -27,6 +27,7 @@ interface Assignment {
     }
     assigned_at: string
     returned_at: string | null
+    returned_by?: { name?: string } | null
     notes: string | null
     document_path: string | null
     duration_days: number
@@ -35,6 +36,7 @@ interface Assignment {
 
 interface Props {
     assignments: Assignment[]
+    assetId: number
 }
 
 const props = defineProps<Props>()
@@ -171,6 +173,13 @@ const hasAssignments = computed(() => props.assignments && props.assignments.len
                                 <span>Assigned by {{ assignment.assigned_by.name }}</span>
                             </div>
 
+                            <!-- Returned By -->
+                            <div v-if="assignment.returned_at && assignment.returned_by?.name"
+                                class="flex items-center gap-2 text-sm text-muted-foreground">
+                                <User class="h-4 w-4" />
+                                <span>Returned by {{ assignment.returned_by.name }}</span>
+                            </div>
+
                             <!-- Notes -->
                             <div v-if="assignment.notes" class="bg-muted/50 rounded-md p-3">
                                 <p class="text-sm font-medium mb-1">Notes:</p>
@@ -180,7 +189,9 @@ const hasAssignments = computed(() => props.assignments && props.assignments.len
                             <!-- Document -->
                             <div v-if="assignment.document_path">
                                 <Button variant="outline" size="sm" as="a"
-                                    :href="`/storage/${assignment.document_path}`" target="_blank" class="gap-2">
+                                    :href="route('assets.assignments.document', [assetId, assignment.id])"
+                                    target="_blank" rel="noopener" :download="`assignment-${assignment.id}`"
+                                    class="gap-2">
                                     <FileText class="h-4 w-4" />
                                     View Document
                                     <Download class="h-3 w-3" />

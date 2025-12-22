@@ -10,12 +10,23 @@ use Illuminate\Validation\Rule;
 class LocationController extends Controller
 {
 
-    public function index()
+    public function index(Request $request)
     {
+        $search = (string) $request->input('search', '');
+
+        $locations = Location::query()
+            ->when($search, function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            })
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('settings/locations/Index', [
-
-            'locations' => Location::latest()->paginate(10),
+            'locations' => $locations,
+            'filters' => [
+                'search' => $search,
+            ],
         ]);
     }
 

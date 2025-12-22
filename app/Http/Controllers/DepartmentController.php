@@ -11,14 +11,23 @@ class DepartmentController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $search = (string) $request->input('search', '');
+
         $departments = Department::withCount('users')
+            ->when($search, function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            })
             ->latest()
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('settings/departments/Index', [
             'departments' => $departments,
+            'filters' => [
+                'search' => $search,
+            ],
             'can' => [
                 'create_department' => auth()->user()->can('create departments'),
                 'edit_department' => auth()->user()->can('edit departments'),

@@ -14,7 +14,8 @@ class CheckinCheckoutLog extends Model
         'asset_id',
         'user_id',
         'action',
-        'timestamp',
+        'action_date',
+        'notes',
     ];
 
     public function asset(): BelongsTo {

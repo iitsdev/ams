@@ -14,10 +14,22 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
+    <div class="fixed left-2 top-2 z-50 space-x-2">
+        <a href="#main-content"
+            class="sr-only focus:not-sr-only focus:inline-block focus:bg-primary focus:text-primary-foreground focus:px-3 focus:py-2 focus:rounded">
+            Skip to main content
+        </a>
+        <a href="#primary-navigation"
+            class="sr-only focus:not-sr-only focus:inline-block focus:bg-primary focus:text-primary-foreground focus:px-3 focus:py-2 focus:rounded">
+            Skip to navigation
+        </a>
+    </div>
     <AppShell class="flex-col">
         <AppHeader :breadcrumbs="breadcrumbs" />
         <AppContent>
-            <slot />
+            <main id="main-content" tabindex="-1" role="main">
+                <slot />
+            </main>
         </AppContent>
     </AppShell>
 </template>

@@ -93,6 +93,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AssignmentHistory from '@/components/AssignmentHistory.vue'
 import axios from 'axios'
+import { getInitials } from '@/composables/useInitials'
+import PageHeader from '@/components/PageHeader.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import SkeletonBlock from '@/components/SkeletonBlock.vue'
 
 const props = defineProps({
     assets: Object,
@@ -100,6 +104,8 @@ const props = defineProps({
     dropdowns: Object,
     can: Object,
 })
+// Loading state for list fetches
+const isLoading = ref(false)
 
 
 // --- FILTER & SORT LOGIC ---
@@ -108,17 +114,26 @@ const status = ref(props.filters?.status)
 const category = ref(props.filters?.category)
 const location = ref(props.filters?.location)
 const assignedUser = ref(props.filters?.assigned_user)
+const ageMinMonths = ref(props.filters?.age_min_months)
+const ageMaxMonths = ref(props.filters?.age_max_months)
 
-watch([search, status, category, location, assignedUser], debounce(() => {
+watch([search, status, category, location, assignedUser, ageMinMonths, ageMaxMonths], debounce(() => {
     router.get(route('assets.index'), {
         search: search.value,
         status: status.value,
         category: category.value,
         location: location.value,
         assigned_user: assignedUser.value,
+        age_min_months: ageMinMonths.value,
+        age_max_months: ageMaxMonths.value,
         sort_by: props.filters?.sort_by,
         sort_direction: props.filters?.sort_direction,
-    }, { preserveState: true, replace: true })
+    }, {
+        preserveState: true,
+        replace: true,
+        onStart: () => { isLoading.value = true },
+        onFinish: () => { isLoading.value = false },
+    })
 }, 300))
 
 // Sorting functions
@@ -127,7 +142,12 @@ const toggleSort = (column: string) => {
         ...props.filters,
         sort_by: column,
         sort_direction: props.filters?.sort_by === column && props.filters.sort_direction === 'asc' ? 'desc' : 'asc',
-    }, { preserveState: true, replace: true })
+    }, {
+        preserveState: true,
+        replace: true,
+        onStart: () => { isLoading.value = true },
+        onFinish: () => { isLoading.value = false },
+    })
 }
 
 const isSorted = (column: string) => {
@@ -326,7 +346,9 @@ const hasActiveFilters = computed(() => {
         (status.value && status.value !== 'all') ||
         (category.value && category.value !== 'all') ||
         (location.value && location.value !== 'all') ||
-        (assignedUser.value && assignedUser.value !== 'all')
+        (assignedUser.value && assignedUser.value !== 'all') ||
+        (ageMinMonths.value && ageMinMonths.value !== 'all') ||
+        (ageMaxMonths.value && ageMaxMonths.value !== 'all')
 })
 
 const clearAllFilters = () => {
@@ -335,6 +357,8 @@ const clearAllFilters = () => {
     category.value = 'all'
     location.value = 'all'
     assignedUser.value = 'all'
+    ageMinMonths.value = 'all'
+    ageMaxMonths.value = 'all'
 }
 
 const formatDate = (date: string | null) => {
@@ -350,10 +374,7 @@ const formatDate = (date: string | null) => {
 const getStatusColor = (status: any) => {
     return status?.color || '#6b7280' // default gray if no color
 }
-const getInitials = (name: string | null | undefined) => {
-    if (!name) return '??'
-    return name.split(' ').map(n => n[0]).join('').toUpperCase()
-}
+// Using shared initials helper from composable
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Assets', href: route('assets.index') },
@@ -365,23 +386,24 @@ const breadcrumbs: BreadcrumbItem[] = [
     <Head title="Assets" />
     <AppLayout :breadcrumbs="breadcrumbs">
         <template #header>
-            <div class="flex items-center justify-between m-2">
-                <h2 class="text-2xl font-bold tracking-tight">Asset Management</h2>
-                <div class="flex items-center space-x-2">
-                    <Button variant="outline" @click="isImportDialogOpen = true">
-                        <Upload class="w-4 h-4 mr-2" />Import
-                    </Button>
-                    <a :href="route('assets.export')"
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-                        <Download class="w-4 h-4 mr-2" />
-                        Export
-                    </a>
-                    <Link v-if="can?.create_asset" :href="route('assets.create')">
-                        <Button>
-                            <Plus class="h-4 w-4 mr-2" />Add Asset
+            <div class="m-2">
+                <PageHeader title="Asset Management">
+                    <template #actions>
+                        <Button variant="outline" @click="isImportDialogOpen = true">
+                            <Upload class="w-4 h-4 mr-2" />Import
                         </Button>
-                    </Link>
-                </div>
+                        <a :href="route('assets.export')"
+                            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                            <Download class="w-4 h-4 mr-2" />
+                            Export
+                        </a>
+                        <Link v-if="can?.create_asset" :href="route('assets.create')">
+                            <Button>
+                                <Plus class="h-4 w-4 mr-2" />Add Asset
+                            </Button>
+                        </Link>
+                    </template>
+                </PageHeader>
             </div>
         </template>
 
@@ -449,6 +471,34 @@ const breadcrumbs: BreadcrumbItem[] = [
                                 </SelectItem>
                             </SelectContent>
                         </Select>
+
+                        <Select v-model="ageMinMonths">
+                            <SelectTrigger class="w-[180px]">
+                                <SelectValue placeholder="Min Age (months)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Any Age</SelectItem>
+                                <SelectItem value="6">6+ months</SelectItem>
+                                <SelectItem value="12">12+ months</SelectItem>
+                                <SelectItem value="24">24+ months</SelectItem>
+                                <SelectItem value="36">36+ months</SelectItem>
+                                <SelectItem value="60">60+ months</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select v-model="ageMaxMonths">
+                            <SelectTrigger class="w-[180px]">
+                                <SelectValue placeholder="Max Age (months)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">No Max</SelectItem>
+                                <SelectItem value="6">Up to 6 months</SelectItem>
+                                <SelectItem value="12">Up to 12 months</SelectItem>
+                                <SelectItem value="24">Up to 24 months</SelectItem>
+                                <SelectItem value="36">Up to 36 months</SelectItem>
+                                <SelectItem value="60">Up to 60 months</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div>
                         <Button v-if="selectedAssets.length > 0" variant="destructive" @click="confirmBulkDeletion">
@@ -480,19 +530,27 @@ const breadcrumbs: BreadcrumbItem[] = [
                             dropdowns?.users.find(u => String(u.id) === assignedUser)?.name}}
                         <button @click="assignedUser = 'all'" class="ml-1 hover:text-destructive">×</button>
                     </Badge>
+                    <Badge v-if="ageMinMonths && ageMinMonths !== 'all'" variant="secondary" class="gap-1">
+                        Min Age: {{ ageMinMonths }} months
+                        <button @click="ageMinMonths = 'all'" class="ml-1 hover:text-destructive">×</button>
+                    </Badge>
+                    <Badge v-if="ageMaxMonths && ageMaxMonths !== 'all'" variant="secondary" class="gap-1">
+                        Max Age: {{ ageMaxMonths }} months
+                        <button @click="ageMaxMonths = 'all'" class="ml-1 hover:text-destructive">×</button>
+                    </Badge>
                     <Button v-if="hasActiveFilters" variant="ghost" size="sm" @click="clearAllFilters" class="text-xs">
                         Clear all filters
                     </Button>
                 </div>
 
-                <div class="border rounded-md">
+                <div class="border rounded-md overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead class="w-12">
                                     <!-- Native checkbox for debugging -->
-                                    <input type="checkbox" :checked="allOnPageSelected" @change="toggleSelectAll"
-                                        class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary focus:ring-2 cursor-pointer" />
+                                    <Checkbox :checked="allOnPageSelected" @update:checked="toggleSelectAll"
+                                        aria-label="Select all on page" />
                                 </TableHead>
                                 <TableHead>
                                     <Button variant="ghost" @click="toggleSort('name')" class="flex items-center gap-1">
@@ -502,20 +560,131 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         <ArrowDown v-else class="h-4 w-4" />
                                     </Button>
                                 </TableHead>
-                                <TableHead>Category</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Location</TableHead>
-                                <TableHead>Assigned To</TableHead>
-                                <TableHead>Purchase Date</TableHead>
-                                <TableHead>Age</TableHead>
-                                <TableHead>Value</TableHead>
+                                <TableHead class="hidden md:table-cell">
+                                    <Button variant="ghost" @click="toggleSort('category')"
+                                        class="flex items-center gap-1">
+                                        Category
+                                        <ArrowUpDown v-if="!isSorted('category')" class="h-4 w-4" />
+                                        <ArrowUp v-else-if="sortDirection === 'asc'" class="h-4 w-4" />
+                                        <ArrowDown v-else class="h-4 w-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead>
+                                    <Button variant="ghost" @click="toggleSort('status')"
+                                        class="flex items-center gap-1">
+                                        Status
+                                        <ArrowUpDown v-if="!isSorted('status')" class="h-4 w-4" />
+                                        <ArrowUp v-else-if="sortDirection === 'asc'" class="h-4 w-4" />
+                                        <ArrowDown v-else class="h-4 w-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead>
+                                    <Button variant="ghost" @click="toggleSort('location')"
+                                        class="flex items-center gap-1">
+                                        Location
+                                        <ArrowUpDown v-if="!isSorted('location')" class="h-4 w-4" />
+                                        <ArrowUp v-else-if="sortDirection === 'asc'" class="h-4 w-4" />
+                                        <ArrowDown v-else class="h-4 w-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead class="hidden md:table-cell">
+                                    <Button variant="ghost" @click="toggleSort('assigned_user_name')"
+                                        class="flex items-center gap-1">
+                                        Assigned To
+                                        <ArrowUpDown v-if="!isSorted('assigned_user_name')" class="h-4 w-4" />
+                                        <ArrowUp v-else-if="sortDirection === 'asc'" class="h-4 w-4" />
+                                        <ArrowDown v-else class="h-4 w-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead class="hidden md:table-cell">
+                                    <Button variant="ghost" @click="toggleSort('purchase_date')"
+                                        class="flex items-center gap-1">
+                                        Purchase Date
+                                        <ArrowUpDown v-if="!isSorted('purchase_date')" class="h-4 w-4" />
+                                        <ArrowUp v-else-if="sortDirection === 'asc'" class="h-4 w-4" />
+                                        <ArrowDown v-else class="h-4 w-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead>
+                                    <Button variant="ghost" @click="toggleSort('purchase_date')"
+                                        class="flex items-center gap-1">
+                                        Age
+                                        <ArrowUpDown v-if="!isSorted('purchase_date')" class="h-4 w-4" />
+                                        <ArrowUp v-else-if="sortDirection === 'asc'" class="h-4 w-4" />
+                                        <ArrowDown v-else class="h-4 w-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead class="hidden md:table-cell">
+                                    <Button variant="ghost" @click="toggleSort('value')"
+                                        class="flex items-center gap-1">
+                                        Value
+                                        <ArrowUpDown v-if="!isSorted('value')" class="h-4 w-4" />
+                                        <ArrowUp v-else-if="sortDirection === 'asc'" class="h-4 w-4" />
+                                        <ArrowDown v-else class="h-4 w-4" />
+                                    </Button>
+                                </TableHead>
                                 <TableHead class="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
+                            <!-- Loading skeleton rows -->
+                            <TableRow v-if="isLoading" v-for="n in 8" :key="`sk-${n}`">
+                                <TableCell>
+                                    <SkeletonBlock class="h-4 w-4 rounded" />
+                                </TableCell>
+                                <TableCell>
+                                    <div class="flex items-center gap-3">
+                                        <SkeletonBlock class="h-8 w-8 rounded" />
+                                        <div class="space-y-2">
+                                            <SkeletonBlock class="h-4 w-40" />
+                                            <SkeletonBlock class="h-3 w-24" />
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell class="hidden md:table-cell">
+                                    <SkeletonBlock class="h-4 w-28" />
+                                </TableCell>
+                                <TableCell>
+                                    <SkeletonBlock class="h-5 w-20 rounded-full" />
+                                </TableCell>
+                                <TableCell>
+                                    <SkeletonBlock class="h-4 w-28" />
+                                </TableCell>
+                                <TableCell class="hidden md:table-cell">
+                                    <div class="flex items-center gap-2">
+                                        <SkeletonBlock class="h-8 w-8 rounded-full" />
+                                        <SkeletonBlock class="h-4 w-24" />
+                                    </div>
+                                </TableCell>
+                                <TableCell class="hidden md:table-cell">
+                                    <SkeletonBlock class="h-4 w-24" />
+                                </TableCell>
+                                <TableCell>
+                                    <SkeletonBlock class="h-5 w-16 rounded" />
+                                </TableCell>
+                                <TableCell class="hidden md:table-cell">
+                                    <SkeletonBlock class="h-4 w-16" />
+                                </TableCell>
+                                <TableCell class="text-right">
+                                    <SkeletonBlock class="h-8 w-8 rounded" />
+                                </TableCell>
+                            </TableRow>
                             <TableRow v-if="assets?.data.length === 0">
-                                <TableCell colspan="10" class="text-center text-muted-foreground py-8">
-                                    No assets found.
+                                <TableCell colspan="10" class="py-10">
+                                    <EmptyState title="No assets found"
+                                        description="Try adjusting filters or create a new asset.">
+                                        <template #actions>
+                                            <div class="flex items-center justify-center gap-2">
+                                                <Button variant="outline" @click="clearAllFilters">Clear
+                                                    filters</Button>
+                                                <Link v-if="can?.create_asset" :href="route('assets.create')">
+                                                    <Button>
+                                                        <Plus class="h-4 w-4 mr-2" />Add Asset
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                        </template>
+                                    </EmptyState>
                                 </TableCell>
                             </TableRow>
                             <TableRow v-for="asset in assets?.data" :key="asset.id">
@@ -534,14 +703,12 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         </div>
                                     </div>
                                 </TableCell>
-                                <TableCell>{{ asset.category?.name || 'N/A' }}</TableCell>
+                                <TableCell class="hidden md:table-cell">{{ asset.category?.name || 'N/A' }}</TableCell>
                                 <TableCell>
-                                    <Badge 
-                                        :style="{ 
-                                            backgroundColor: getStatusColor(asset.status), 
-                                            color: '#fff' 
-                                        }"
-                                    >
+                                    <Badge :style="{
+                                        backgroundColor: getStatusColor(asset.status),
+                                        color: '#fff'
+                                    }">
                                         {{ asset.status?.name || 'N/A' }}
                                     </Badge>
                                 </TableCell>
@@ -551,7 +718,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         <span>{{ asset.location?.name || 'N/A' }}</span>
                                     </div>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell class="hidden md:table-cell">
                                     <div v-if="asset.assigned_to_user" class="flex items-center gap-2">
                                         <Avatar class="h-8 w-8">
                                             <AvatarImage v-if="asset.assigned_to_user.avatar_url"
@@ -566,6 +733,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                                 <Tooltip>
                                                     <TooltipTrigger as-child>
                                                         <Button variant="ghost" size="icon" class="h-8 w-8 rounded-full"
+                                                            aria-label="Reassign asset" title="Reassign"
                                                             @click="openReassignDialog(asset)">
                                                             <UserPlus class="h-4 w-4" />
                                                         </Button>
@@ -580,6 +748,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                                 <Tooltip>
                                                     <TooltipTrigger as-child>
                                                         <Button variant="ghost" size="icon"
+                                                            aria-label="Remove assignment" title="Remove assignment"
                                                             class="h-8 w-8 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50"
                                                             @click="confirmUnassign(asset)">
                                                             <UserMinus class="h-4 w-4" />
@@ -597,6 +766,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                             <Tooltip>
                                                 <TooltipTrigger as-child>
                                                     <Button variant="ghost" size="icon" class="rounded-full"
+                                                        aria-label="Assign to user" title="Assign to user"
                                                         @click="openAssignDialog(asset)">
                                                         <UserPlus class="h-4 w-4" />
                                                     </Button>
@@ -608,16 +778,25 @@ const breadcrumbs: BreadcrumbItem[] = [
                                         </TooltipProvider>
                                     </div>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell class="hidden md:table-cell">
                                     <div class="text-sm">{{ formatDate(asset.purchase_date) }}</div>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge v-if="asset.years_since_purchase" variant="secondary">
-                                        {{ asset.years_since_purchase }}
-                                    </Badge>
+                                    <TooltipProvider v-if="asset.age">
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <Badge variant="secondary">
+                                                    {{ asset.age.years }}y {{ asset.age.months }}m
+                                                </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Total {{ asset.age.total_months }} months</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
                                     <span v-else class="text-muted-foreground text-sm">N/A</span>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell class="hidden md:table-cell">
                                     <div v-if="asset.depreciation" class="text-sm">
                                         ${{ asset.depreciation.current_value }}
                                     </div>
@@ -626,13 +805,28 @@ const breadcrumbs: BreadcrumbItem[] = [
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" class="w-8 h-8 p-0">
+                                            <Button variant="ghost" class="w-8 h-8 p-0" aria-label="Open actions"
+                                                title="Actions">
                                                 <MoreHorizontal class="w-4 h-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem as-child>
                                                 <Link :href="route('assets.show', asset.id)">View</Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem v-if="!asset.assigned_to_user"
+                                                @click="openAssignDialog(asset)">
+                                                <UserPlus class="h-4 w-4 mr-2" />
+                                                Assign to User
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem v-else @click="openReassignDialog(asset)">
+                                                <UserPlus class="h-4 w-4 mr-2" />
+                                                Reassign
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem v-if="asset.assigned_to_user"
+                                                @click="confirmUnassign(asset)" class="text-red-600">
+                                                <UserMinus class="h-4 w-4 mr-2" />
+                                                Remove Assignment
                                             </DropdownMenuItem>
                                             <DropdownMenuItem @click="viewAssignmentHistory(asset)">
                                                 <Clock class="h-4 w-4 mr-2" />
@@ -961,7 +1155,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 
                                         <div v-if="assignment.document_path">
                                             <Button variant="outline" size="sm" as="a"
-                                                :href="`/storage/${assignment.document_path}`" target="_blank"
+                                                :href="route('assets.assignments.document', [selectedAssetForHistory.id, assignment.id])"
+                                                target="_blank" rel="noopener" :download="`assignment-${assignment.id}`"
                                                 class="gap-2">
                                                 <FileText class="h-4 w-4" />
                                                 View Document

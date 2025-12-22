@@ -36,12 +36,24 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
+    <a href="#main-content"
+        class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-primary focus:text-primary-foreground focus:px-3 focus:py-2 focus:rounded">
+        Skip to main content
+    </a>
+    <div class="fixed left-2 top-2 z-50 space-x-2">
+        <a href="#primary-navigation"
+            class="sr-only focus:not-sr-only focus:inline-block focus:bg-primary focus:text-primary-foreground focus:px-3 focus:py-2 focus:rounded">
+            Skip to navigation
+        </a>
+    </div>
     <AppShell variant="sidebar">
         <AppSidebar />
         <AppContent variant="sidebar">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
             <slot name="header" />
-            <slot />
+            <div id="main-content" tabindex="-1" role="main">
+                <slot />
+            </div>
         </AppContent>
     </AppShell>
     <Toaster rich-colors position="top-right" />

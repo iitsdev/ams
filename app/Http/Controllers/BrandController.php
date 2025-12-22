@@ -11,14 +11,23 @@ class BrandController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $search = (string) $request->input('search', '');
+
         $brands = Brand::withCount('assets')
+            ->when($search, function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            })
             ->orderBy('name')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         return Inertia::render('settings/brands/Index', [
             'brands' => $brands,
+            'filters' => [
+                'search' => $search,
+            ],
             'can' => [
                 'create_brand' => true,
                 'edit_brand' => true,

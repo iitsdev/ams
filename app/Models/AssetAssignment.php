@@ -18,6 +18,7 @@ class AssetAssignment extends Model
         'returned_at',
         'returned_by',
         'notes',
+        'document_path',
     ];
 
     protected $casts = [

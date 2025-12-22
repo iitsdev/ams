@@ -15,7 +15,8 @@ import {
     User2,
     Package,
     Truck,
-    Building
+    Building,
+    ClipboardList,
 } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
@@ -29,6 +30,11 @@ const mainNavItems: NavItem[] = [
         title: 'Assets',
         href: route('assets.index'),
         icon: Building2,
+    },
+    {
+        title: 'Audits',
+        href: route('audits.index'),
+        icon: ClipboardList,
     },
     {
         title: 'Settings',
@@ -88,7 +94,7 @@ const footerNavItems: NavItem[] = [
 </script>
 
 <template>
-    <Sidebar collapsible="icon" variant="floating">
+    <Sidebar collapsible="icon" variant="floating" id="primary-navigation" aria-label="Primary navigation">
         <SidebarHeader>
             <SidebarMenu>
                 <SidebarMenuItem>

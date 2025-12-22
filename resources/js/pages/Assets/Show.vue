@@ -36,6 +36,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from '@/components/ui/tooltip';
+import {
     Plus,
     UserMinus,
     UserPlus,
@@ -51,6 +57,7 @@ import {
     Download
 } from 'lucide-vue-next';
 import AssignmentHistory from '@/components/AssignmentHistory.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const props = defineProps({
     asset: Object,
@@ -153,24 +160,18 @@ const openReassignDialog = () => {
     <Head :title="`Asset - ${asset?.name}`" />
     <AppLayout :breadcrumbs="breadcrumbs">
         <template #header>
-            <div class="flex items-center justify-between m-4">
-                <div>
-                    <h2 class="text-2xl font-bold tracking-tight">
-                        {{ asset?.name }}
-                    </h2>
-                    <p class="text-muted-foreground">
-                        {{ asset?.asset_tag }}
-                    </p>
-                </div>
-                <div class="flex gap-2">
-                    <Button variant="outline" @click="openBarcodeDialog">
-                        <QrCode class="h-4 w-4 mr-2" />
-                        Barcode
-                    </Button>
-                    <Link :href="route('assets.edit', asset?.id)">
-                        <Button>Edit Asset</Button>
-                    </Link>
-                </div>
+            <div class="m-2">
+                <PageHeader :title="asset?.name" :subtitle="asset?.asset_tag">
+                    <template #actions>
+                        <Button variant="outline" @click="openBarcodeDialog">
+                            <QrCode class="h-4 w-4 mr-2" />
+                            Barcode
+                        </Button>
+                        <Link :href="route('assets.edit', asset?.id)">
+                            <Button>Edit Asset</Button>
+                        </Link>
+                    </template>
+                </PageHeader>
             </div>
         </template>
 
@@ -255,9 +256,18 @@ const openReassignDialog = () => {
                                     <Clock class="h-4 w-4" />
                                     Age
                                 </span>
-                                <Badge v-if="asset?.years_since_purchase" variant="secondary">
-                                    {{ asset.years_since_purchase }}
-                                </Badge>
+                                <TooltipProvider v-if="asset?.age">
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <Badge variant="secondary">
+                                                {{ asset.age.years }}y {{ asset.age.months }}m
+                                            </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Total {{ asset.age.total_months }} months</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                                 <span v-else>N/A</span>
                             </div>
                             <div class="flex justify-between">
@@ -354,7 +364,7 @@ const openReassignDialog = () => {
             </Card>
 
             <!-- Assignment History -->
-            <AssignmentHistory v-if="asset?.assignments" :assignments="asset.assignments" />
+            <AssignmentHistory v-if="asset?.assignments" :assignments="asset.assignments" :asset-id="asset.id" />
 
             <!-- Maintenance Logs Card -->
             <Card>

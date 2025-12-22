@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import PageHeader from '@/components/PageHeader.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import SkeletonBlock from '@/components/SkeletonBlock.vue'
 import {
     Table,
     TableBody,
@@ -47,11 +50,14 @@ const props = defineProps<{
 }>()
 
 const search = ref(props.filters.search || '')
+const isLoading = ref(false)
 
 watch(search, (value) => {
     router.get(route('asset-statuses.index'), { search: value }, {
         preserveState: true,
         replace: true,
+        onStart: () => { isLoading.value = true },
+        onFinish: () => { isLoading.value = false },
     })
 })
 
@@ -68,17 +74,17 @@ const deleteStatus = (id: number) => {
 
     <AppLayout>
         <template #header>
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-3xl font-bold tracking-tight">Asset Statuses</h2>
-                    <p class="text-muted-foreground">Manage asset status types</p>
-                </div>
-                <Link :href="route('asset-statuses.create')">
-                    <Button>
-                        <Plus class="h-4 w-4 mr-2" />
-                        Add Status
-                    </Button>
-                </Link>
+            <div class="m-2">
+                <PageHeader title="Asset Statuses" subtitle="Manage asset status types">
+                    <template #actions>
+                        <Link :href="route('asset-statuses.create')">
+                            <Button>
+                                <Plus class="h-4 w-4 mr-2" />
+                                Add Status
+                            </Button>
+                        </Link>
+                    </template>
+                </PageHeader>
             </div>
         </template>
 
@@ -110,9 +116,30 @@ const deleteStatus = (id: number) => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-if="!statuses?.data?.length">
-                                <TableCell colspan="5" class="text-center text-muted-foreground py-8">
-                                    No statuses found
+                            <TableRow v-if="isLoading" v-for="n in 6" :key="`sk-${n}`">
+                                <TableCell class="font-medium">
+                                    <SkeletonBlock class="h-5 w-32" />
+                                </TableCell>
+                                <TableCell>
+                                    <div class="flex items-center gap-2">
+                                        <SkeletonBlock class="w-6 h-6 rounded" />
+                                        <SkeletonBlock class="h-4 w-20" />
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <SkeletonBlock class="h-4 w-12" />
+                                </TableCell>
+                                <TableCell>
+                                    <SkeletonBlock class="h-4 w-40" />
+                                </TableCell>
+                                <TableCell class="text-right">
+                                    <SkeletonBlock class="h-8 w-20 ml-auto rounded" />
+                                </TableCell>
+                            </TableRow>
+                            <TableRow v-else-if="!statuses?.data?.length">
+                                <TableCell colspan="5" class="py-10">
+                                    <EmptyState title="No statuses found"
+                                        description="Create a status to track asset lifecycle." />
                                 </TableCell>
                             </TableRow>
                             <TableRow v-for="status in statuses?.data" :key="status.id">

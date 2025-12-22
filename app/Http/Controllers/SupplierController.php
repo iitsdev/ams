@@ -11,14 +11,23 @@ class SupplierController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $search = (string) $request->input('search', '');
+
         $suppliers = Supplier::withCount('assets')
+            ->when($search, function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            })
             ->orderBy('name')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         return Inertia::render('settings/suppliers/Index', [
             'suppliers' => $suppliers,
+            'filters' => [
+                'search' => $search,
+            ],
             'can' => [
                 'create_supplier' => true,
                 'edit_supplier' => true,

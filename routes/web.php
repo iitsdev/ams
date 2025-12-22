@@ -5,6 +5,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\AuditSessionController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\MaintenanceLogController;
@@ -23,23 +24,36 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     //Assets Routes
-    Route::get('/assets', [AssetController::class, 'index'])->name('assets.index');
-    Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
-    Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
-    Route::get('/assets/{asset}/edit', [AssetController::class, 'edit'])->name('assets.edit');
-    Route::put('/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
-    Route::delete('/assets/{asset}', [AssetController::class, 'destroy'])->name('assets.delete');
-    Route::post('/assets/bulk-delete', [AssetController::class, 'bulkDestroy'])->name('assets.bulkDelete');
-    Route::get('/assets/export', [AssetController::class, 'export'])->name('assets.export');
-    Route::post('/assets/import', [AssetController::class, 'import'])->name('assets.import');
-    Route::post('/assets/{asset}/assign', [AssetController::class, 'assign'])->name('assets.assign');
-    Route::get('/assets/{asset}/show', [AssetController::class, 'show'])->name('assets.show');
-    Route::get('/assets/{asset}/barcode', [AssetController::class, 'barcode'])->name('assets.barcode');
-    Route::get('/assets/{asset}/print', [AssetController::class, 'printLabel'])->name('assets.print');
-    Route::post('/assets/{asset}/reassign', [AssetController::class, 'reassign'])->name('assets.reassign');
-    Route::resource('assets', AssetController::class);
-    Route::get('/assets/{asset}/assignments', [AssetController::class, 'getAssignments'])->name('assets.assignments');
-    Route::post('/assets/{asset}/unassign', [AssetController::class, 'unassign'])->name('assets.unassign');
+    Route::prefix('assets')->name('assets.')->group(function () {
+        Route::get('/', [AssetController::class, 'index'])->name('index');
+        Route::get('/create', [AssetController::class, 'create'])->name('create');
+        Route::post('/', [AssetController::class, 'store'])->name('store');
+        Route::get('/{asset}/edit', [AssetController::class, 'edit'])->name('edit');
+        Route::put('/{asset}', [AssetController::class, 'update'])->name('update');
+        Route::delete('/{asset}', [AssetController::class, 'destroy'])->name('delete');
+        Route::post('/bulk-delete', [AssetController::class, 'bulkDestroy'])->name('bulkDelete');
+        Route::get('/export', [AssetController::class, 'export'])->name('export');
+        Route::post('/import', [AssetController::class, 'import'])->name('import');
+        Route::post('/{asset}/assign', [AssetController::class, 'assign'])->name('assign');
+        Route::get('/{asset}/show', [AssetController::class, 'show'])->name('show');
+        Route::get('/{asset}/barcode', [AssetController::class, 'barcode'])->name('barcode');
+        Route::get('/{asset}/print-label', [AssetController::class, 'printLabel'])->name('print-label');
+        Route::post('/{asset}/reassign', [AssetController::class, 'reassign'])->name('reassign');
+        Route::get('/{asset}/assignments', [AssetController::class, 'getAssignments'])->name('assignments');
+        Route::get('/{asset}/assignments/{assignment}/document', [AssetController::class, 'downloadAssignmentDocument'])->name('assignments.document');
+        Route::post('/{asset}/unassign', [AssetController::class, 'unassign'])->name('unassign');
+
+        //Maintenance Route
+        Route::post('/{asset}/maintenance-logs', [MaintenanceLogController::class, 'store'])->name('maintenance_logs.store');
+    });
+
+    // Audit Sessions
+    Route::get('/audits', [AuditSessionController::class, 'index'])->name('audits.index');
+    Route::post('/audits', [AuditSessionController::class, 'store'])->name('audits.store');
+    Route::get('/audits/{audit}', [AuditSessionController::class, 'show'])->name('audits.show');
+    Route::post('/audits/{audit}/scan', [AuditSessionController::class, 'scan'])->name('audits.scan');
+    Route::post('/audits/{audit}/close', [AuditSessionController::class, 'close'])->name('audits.close');
+    Route::get('/audits/{audit}/variance', [AuditSessionController::class, 'variance'])->name('audits.variance');
 
     //Locations Routes
     Route::resource('settings/locations', LocationController::class)->except(['show']);
@@ -55,9 +69,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/brands', BrandController::class)->except(['show']);
     // Asset Status routes
     Route::resource('settings/asset-statuses', AssetStatusController::class)->except(['show']);
-
-    //Maintenance Route
-    Route::post('/assets/{asset}/maintenance-logs', [MaintenanceLogController::class, 'store'])->name('assets.maintenance_logs.store');
 });
 
 

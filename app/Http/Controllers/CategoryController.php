@@ -11,10 +11,23 @@ use Illuminate\Validation\Rule;
 class CategoryController extends Controller
 {
 
-    public function index()
+    public function index(Request $request)
     {
+        $search = (string) $request->input('search', '');
+
+        $categories = Category::query()
+            ->when($search, function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
         return Inertia::render('settings/categories/Index', [
-            'categories' => Category::latest()->paginate(10),
+            'categories' => $categories,
+            'filters' => [
+                'search' => $search,
+            ],
         ]);
     }
 

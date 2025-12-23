@@ -25,9 +25,19 @@ jobs:
         run: |
           npm ci
           npm run build
-        # This generates 'public/build'. We will upload this along with the Laravel code.
 
-      # 3️⃣ Deploy Everything (One Step)
+      # 3️⃣ Setup PHP & Vendor (Build Backend Locally)
+      # FIX: We install dependencies here to avoid relying on Hostinger's network/CPU
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2' # Ensure this matches your Hostinger PHP version
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
+
+      - name: Install Dependencies
+        run: composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction
+
+      # 4️⃣ Deploy Everything (One Step)
       - name: Deploy Application
         uses: easingthemes/ssh-deploy@main
         with:
@@ -36,14 +46,11 @@ jobs:
           REMOTE_USER: ${{ secrets.USERNAME }}
           REMOTE_PORT: ${{ secrets.PORT }}
           SOURCE: '.'
-          # TARGET must be the full path (e.g., /home/u12345/domains/iits.website/public_html/ams)
           TARGET: ${{ secrets.DEPLOY_PATH }}
-          # ⚠️ REMOVED 'public/build' from exclude so it uploads with the app
-          # ⚠️ REMOVED 'vendor' from exclude so we don't rely on server network for composer (optional, see note below)
-          # Ideally, install composer on server. If you want to install on server, keep 'vendor' in exclude.
-          EXCLUDE: 'node_modules, .git, .github, .env, public/storage, storage, bootstrap/cache'
+          # FIX: Removed 'vendor' and 'public/build' from exclude so they are uploaded
+          # FIX: Kept 'storage' in exclude to protect server logs/uploads
+          EXCLUDE: 'node_modules, .git, .github, .env, .env.example, storage, bootstrap/cache'
           SCRIPT_AFTER: |
-            # Use the secret path to ensure consistency
             cd ${{ secrets.DEPLOY_PATH }}
 
             # --- ENV SETUP ---
@@ -54,13 +61,8 @@ jobs:
               php artisan key:generate
             fi
 
-            # --- DEPENDENCIES ---
-            # Hostinger often blocks outgoing ports, but usually Composer works. 
-            # If it fails, consider installing 'vendor' in GitHub actions and uploading it (remove vendor from EXCLUDE above).
-            composer install --optimize-autoloader
-
             # --- MIGRATIONS ---
-            # NEVER use migrate:fresh in production CD
+            # Standard force migration for production
             php artisan migrate --force
 
             # --- CACHES & OPTIMIZATION ---
@@ -69,13 +71,12 @@ jobs:
             php artisan view:cache
 
             # --- VITE/ASSET FIX ---
-            # Ensure the build manifest exists
             if [ -d "public/build" ]; then
                 chmod -R 755 public/build
             fi
 
             # --- PERMISSIONS (Hostinger Specific) ---
-            # Hostinger runs FastCGI; 775 can actually cause 500 errors. 755 is safer.
+            # FIX: Ensure storage is writable but secure (755 is best for Hostinger)
             chmod -R 755 storage bootstrap/cache
 
             # --- .htaccess (Only needed if NOT pointing domain to /public) ---

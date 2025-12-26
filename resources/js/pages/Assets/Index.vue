@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// filepath: c:\Users\daveg\Desktop\Projects\ams\resources\js\pages\assets\Index.vue
 
 import { ref, watch, computed } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';

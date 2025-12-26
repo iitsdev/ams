@@ -32,7 +32,6 @@ class AssetController extends Controller
         $sortDirection = $request->input('sort_direction', 'desc');
 
         // Map UI sort keys to actual DB columns
-        
         $sortColumnMap = [
             'name' => 'assets.name',
             'created_at' => 'assets.created_at',

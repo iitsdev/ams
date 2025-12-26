@@ -54,8 +54,12 @@
             SCRIPT_AFTER: |
               cd ${{ secrets.DEPLOY_PATH }}
 
-              set -e
-              
+                # --- CACHE CLEAR ---
+                php artisan config:clear
+                php artisan route:clear
+                php artisan view:clear
+                php artisan cache:clear
+
               # --- ENV SETUP ---
               if [ ! -f ".env" ]; then
                 echo "Creating .env file..."

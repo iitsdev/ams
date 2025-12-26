@@ -25,6 +25,7 @@ jobs:
         run: |
           npm ci
           npm run build
+          test -d public/build || (echo "❌ Vite build missing" && exit 1)
 
       # 3️⃣ Setup PHP & Vendor (Build Backend Locally)
       # FIX: We install dependencies here to avoid relying on Hostinger's network/CPU

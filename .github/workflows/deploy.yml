@@ -24,6 +24,7 @@ jobs:
       - name: Build Frontend Assets
         run: |
           npm ci
+          rm -rf public/build
           npm run build
           test -d public/build || (echo "❌ Vite build missing" && exit 1)
 

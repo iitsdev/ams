@@ -1,107 +1,106 @@
-  name: AMS CI/CD – Laravel + Vue Optimized Deploy
+name: AMS CI/CD – Laravel + Vue Optimized Deploy
 
-  on:
-    push:
-      branches:
-        - main
+on:
+  push:
+    branches:
+      - main
 
-  jobs:
-    deploy:
-      runs-on: ubuntu-latest
-      name: Build & Deploy Laravel + Vue
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Build & Deploy Laravel + Vue
 
-      steps:
-        # 1️⃣ Checkout Code
-        - name: Checkout Code
-          uses: actions/checkout@v4
+    steps:
+      # 1️⃣ Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-        # 2️⃣ Setup Node (Build Frontend Locally)
-        - name: Setup Node
-          uses: actions/setup-node@v4
-          with:
-            node-version: '20'
+      # 2️⃣ Setup Node (Build Frontend Locally)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-        - name: Build Frontend Assets
-          run: |
-            npm ci
-            npm run build
-            test -d public/build || (echo "❌ Vite build missing" && exit 1)
+      - name: Build Frontend Assets
+        run: |
+          npm ci
+          npm run build
+          test -d public/build || (echo "❌ Vite build missing" && exit 1)
 
-        # 3️⃣ Setup PHP & Vendor (Build Backend Locally)
-        # FIX: We install dependencies here to avoid relying on Hostinger's network/CPU
-        - name: Setup PHP
-          uses: shivammathur/setup-php@v2
-          with:
-            php-version: '8.2' # Ensure this matches your Hostinger PHP version
-            extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
+      # 3️⃣ Setup PHP & Install Dependencies
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
 
-        - name: Install Dependencies
-          run: composer install --optimize-autoloader --prefer-dist --no-interaction
+      - name: Install Dependencies
+        run: composer install --no-dev --optimize-autoloader
 
-        # 4️⃣ Deploy Everything (One Step)
-        - name: Deploy Application
-          uses: easingthemes/ssh-deploy@main
-          with:
-            SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
-            REMOTE_HOST: ${{ secrets.HOST }}
-            REMOTE_USER: ${{ secrets.USERNAME }}
-            REMOTE_PORT: ${{ secrets.PORT }}
-            SOURCE: '.'
-            TARGET: ${{ secrets.DEPLOY_PATH }}
-            # FIX: Removed 'vendor' and 'public/build' from exclude so they are uploaded
-            # FIX: Kept 'storage' in exclude to protect server logs/uploads
-            EXCLUDE: 'node_modules, .git, .github, .env, .env.example, storage, bootstrap/cache'
-            SCRIPT_AFTER: |
-              cd ${{ secrets.DEPLOY_PATH }}
+      # 4️⃣ Deploy Everything (One Step)
+      - name: Deploy Application
+        uses: easingthemes/ssh-deploy@main
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.HOST }}
+          REMOTE_USER: ${{ secrets.USERNAME }}
+          REMOTE_PORT: ${{ secrets.PORT }}
+          SOURCE: '.'
+          TARGET: ${{ secrets.DEPLOY_PATH }}
+          EXCLUDE: 'node_modules, .git, .github, .env, .env.example, storage, bootstrap/cache'
+          SCRIPT_AFTER: |
+            cd ${{ secrets.DEPLOY_PATH }}
 
-                # --- CACHE CLEAR ---
-                php artisan config:clear
-                php artisan route:clear
-                php artisan view:clear
-                php artisan cache:clear
+            # --- REMOVE OLD CACHED DISCOVERY ---
+            echo "🧹 Clearing old cached discovery..."
+            rm -f bootstrap/cache/packages.php
+            rm -f bootstrap/cache/services.php
+            rm -f bootstrap/cache/config.php
 
-              # --- ENV SETUP ---
-              if [ ! -f ".env" ]; then
-                echo "Creating .env file..."
-                cp .env.example .env
-                sed -i "s|^APP_URL=.*|APP_URL=https://ams.iits.website|g" .env
-                php artisan key:generate
-              fi
+            # --- REGENERATE AUTO-DISCOVERY ---
+            composer dump-autoload
+            php artisan package:discover
 
-              # --- CLEAR OLD CACHES ---
-              php artisan optimize:clear
+            # --- CLEAR ALL CACHES ---
+            php artisan optimize:clear
 
-              # --- MIGRATIONS ---
-              # Standard force migration for production
-              php artisan migrate --force
+            # --- ENV SETUP ---
+            if [ ! -f ".env" ]; then
+              echo "Creating .env file..."
+              cp .env.example .env
+              sed -i "s|^APP_URL=.*|APP_URL=https://ams.iits.website|g" .env
+              php artisan key:generate
+            fi
 
-              # --- CACHES & OPTIMIZATION ---
-              php artisan config:cache
-              php artisan route:cache
-              php artisan view:cache
+            # --- MIGRATIONS ---
+            php artisan migrate --force
 
-              # --- VITE/ASSET FIX ---
-              if [ -d "public/build" ]; then
-                  chmod -R 755 public/build
-              else
-                echo "❌ Vite build missing in public/build"
-                exit 1
-              fi
+            # --- CACHES & OPTIMIZATION ---
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
 
-              # --- PERMISSIONS (Hostinger Specific) ---
-              # FIX: Ensure storage is writable but secure (755 is best for Hostinger)
-              chmod -R 755 storage bootstrap/cache
-              chmod -R 755 vendor
+            # --- VITE/ASSET FIX ---
+            if [ -d "public/build" ]; then
+                chmod -R 755 public/build
+            else
+              echo "❌ Vite build missing in public/build"
+              exit 1
+            fi
 
-              # --- .htaccess (Only needed if NOT pointing domain to /public) ---
-              if [ ! -f ".htaccess" ]; then
-                echo "Creating .htaccess..."
-                cat > .htaccess <<'EOF'
-              <IfModule mod_rewrite.c>
-                RewriteEngine On
-                RewriteRule ^(.*)$ public/$1 [L]
-              </IfModule>
+            # --- PERMISSIONS ---
+            chmod -R 755 storage bootstrap/cache
+            chmod -R 755 vendor
+
+            # --- .htaccess ---
+            if [ ! -f ".htaccess" ]; then
+              echo "Creating .htaccess..."
+              cat > .htaccess <<'EOF'
+                <IfModule mod_rewrite.c>
+                    RewriteEngine On
+                    RewriteRule ^(.*)$ public/$1 [L]
+                </IfModule>
               EOF
-              fi
+            fi
 
-              echo "🚀 Deployment Complete!"
+            echo "🚀 Deployment Complete!"
